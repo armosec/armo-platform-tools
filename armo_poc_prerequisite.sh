@@ -2,21 +2,33 @@
 
 set -euo pipefail
 
+# Load parameters from values.conf
+source values.conf
+
+# Function to validate file existence
+validate_files() {
+  local files=("$IP_FILE" "$EBPF_DAEMONSET_FILE" "$PV_CHECK_PVC_FILE")
+
+  for file in "${files[@]}"; do
+    if [[ ! -f $file ]]; then
+      echo "❌ Required file not found: $file"
+      exit 1
+    fi
+  done
+}
+
+# Validate the required files before proceeding
+validate_files
+
 # Function to check network accessibility
 check_network_accessibility() {
-  local IP_FILE="ip_list.txt"
-  if [[ ! -f $IP_FILE ]]; then
-    echo "❌ IP list file not found: $IP_FILE"
-    return 1
-  fi
-
   local IP_LIST
   IP_LIST=$(<"$IP_FILE")
 
   local OUTPUT
   local FAILED_ADDRESSES=""
 
-  trap "kubectl delete pod armo-network-check" SIGINT
+  trap "kubectl delete pod armo-network-check" EXIT
 
   OUTPUT=$(kubectl run armo-network-check --rm -it --image=busybox --env="IP_LIST=$IP_LIST" --restart=Never -- sh -c '
     FAILED_ADDRESSES=""
@@ -34,7 +46,7 @@ check_network_accessibility() {
     fi
   ' 2>&1)
 
-  trap - SIGINT
+  trap - EXIT
 
   if echo "$OUTPUT" | grep -q "failed to access"; then
     echo "$OUTPUT" | grep "failed to access"
@@ -51,14 +63,8 @@ check_network_accessibility() {
 
 # Function to verify Helm chart installation permissions
 verify_helm_permissions() {
-  local RELEASE_NAME="kubescape"
-  local CHART_NAME="kubescape/kubescape-operator"
-  local NAMESPACE="kubescape"
   local CLUSTER_NAME
   CLUSTER_NAME=$(kubectl config current-context)
-  local ACCOUNT_ID="00000000-0000-0000-0000-000000000000"
-  local ACCESS_KEY="00000000-0000-0000-0000-000000000000"
-  local SERVER="api.armosec.io"
   local HELM_OUTPUT
   
   HELM_OUTPUT=$(helm upgrade --install --dry-run "$RELEASE_NAME" "$CHART_NAME" -n "$NAMESPACE" --create-namespace \
@@ -79,47 +85,23 @@ verify_helm_permissions() {
 check_ebpf_support() {
   local OUTPUT
   local UNSUPPORTED_NODES=""
+  local DAEMONSET_NAME="armo-ebpf-check"
 
-  trap "kubectl delete daemonset armo-ebpf-check" SIGINT
+  trap "kubectl delete daemonset $DAEMONSET_NAME" EXIT
 
-  OUTPUT=$(kubectl apply -f - <<EOF
-apiVersion: apps/v1
-kind: DaemonSet
-metadata:
-  name: armo-ebpf-check
-  labels:
-    app: armo-ebpf-check
-spec:
-  selector:
-    matchLabels:
-      app: armo-ebpf-check
-  template:
-    metadata:
-      labels:
-        app: armo-ebpf-check
-    spec:
-      containers:
-      - name: armo-ebpf-check
-        image: busybox
-        command:
-        - /bin/sh
-        - -c
-        - |
-          #!/bin/sh
-          if [ ! -r /sys/fs/bpf ]; then
-            echo "eBPF is not supported on $(hostname)"
-          else
-            echo "eBPF is supported on $(hostname)"
-            exit 1
-          fi
-          sleep 3600
-      restartPolicy: Always
-EOF
-  )
+  OUTPUT=$(kubectl apply -f "$EBPF_DAEMONSET_FILE")
 
-  sleep 10
+  # Wait for all desired pods to be ready
+  local desiredPods=0
+  local readyPods=0
+  read desiredPods readyPods < <(kubectl get daemonset $DAEMONSET_NAME -o jsonpath='{.status.desiredNumberScheduled} {.status.numberReady}')
+  while [ "$desiredPods" -ne "$readyPods" ]; do
+    echo "Wait for all pods of the DaemonSet '$DAEMONSET_NAME' to be ready. Ready pods: $readyPods/$desiredPods"
+    sleep 5
+    read desiredPods readyPods < <(kubectl get daemonset $DAEMONSET_NAME -o jsonpath='{.status.desiredNumberScheduled} {.status.numberReady}')
+  done
 
-  PODS=$(kubectl get pods -l app=armo-ebpf-check -o jsonpath='{.items[*].metadata.name}')
+  PODS=$(kubectl get pods -l app=$DAEMONSET_NAME -o jsonpath='{.items[*].metadata.name}')
   
   for pod in $PODS; do
     if ! kubectl logs $pod | grep -q "eBPF is supported"; then
@@ -127,15 +109,15 @@ EOF
     fi
   done
 
-  kubectl delete daemonset armo-ebpf-check
+  kubectl delete daemonset $DAEMONSET_NAME
 
-  trap - SIGINT
+  trap - EXIT
 
   if [ -n "$UNSUPPORTED_NODES" ]; then
-    echo "failed on nodes:$UNSUPPORTED_NODES"
+    echo "eBPF is not supported on the following nodes: $UNSUPPORTED_NODES"
     return 1
   else
-    echo "success"
+    echo "eBPF is supported on all nodes."
     return 0
   fi
 }
@@ -143,30 +125,19 @@ EOF
 # Function to check PV support
 check_pv_support() {
   local OUTPUT
+  local PVC_NAME="armo-pv-check-pvc"
 
-  trap "kubectl delete pvc armo-pv-check-pvc" SIGINT
+  trap "kubectl delete pvc $PVC_NAME" EXIT
 
-  OUTPUT=$(kubectl apply -f - <<EOF
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: armo-pv-check-pvc
-spec:
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
-EOF
-  )
+  OUTPUT=$(kubectl apply -f "$PV_CHECK_PVC_FILE")
 
   sleep 10
 
-  PVC_STATUS=$(kubectl get pvc armo-pv-check-pvc -o jsonpath='{.status.phase}')
+  PVC_STATUS=$(kubectl get pvc $PVC_NAME -o jsonpath='{.status.phase}')
 
-  kubectl delete pvc armo-pv-check-pvc
+  kubectl delete pvc $PVC_NAME
 
-  trap - SIGINT
+  trap - EXIT
 
   if [ "$PVC_STATUS" == "Bound" ]; then
     echo "success"
