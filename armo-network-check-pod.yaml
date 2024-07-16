@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: armo-network-check
+spec:
+  containers:
+  - name: armo-network-check
+    image: busybox
+    env:
+    - name: IP_LIST
+      value: "<IP_LIST>"
+    command: ["sh", "-c"]
+    args:
+      - |
+        FAILED_ADDRESSES=""
+        for ADDR in \$IP_LIST; do
+          if ! nc -z -w 5 \$ADDR 443; then
+            FAILED_ADDRESSES="\$FAILED_ADDRESSES \$ADDR"
+          fi
+        done
+        if [ -z "\$FAILED_ADDRESSES" ]; then
+          echo "success"
+        else
+          echo "failed to access:\$FAILED_ADDRESSES"
+        fi
+  restartPolicy: Never

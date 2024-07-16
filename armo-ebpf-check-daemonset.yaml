@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: armo-ebpf-check
+  labels:
+    app: armo-ebpf-check
+spec:
+  selector:
+    matchLabels:
+      app: armo-ebpf-check
+  template:
+    metadata:
+      labels:
+        app: armo-ebpf-check
+    spec:
+      containers:
+      - name: armo-ebpf-check
+        image: busybox
+        command:
+        - /bin/sh
+        - -c
+        - |
+          #!/bin/sh
+          if [ ! -r /sys/fs/bpf ]; then
+            echo "eBPF is not supported on $(hostname)"
+          else
+            echo "eBPF is supported on $(hostname)"
+          fi
+          touch /tmp/ready
+          sleep 3600
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - test -f /tmp/ready
+          initialDelaySeconds: 1
+          periodSeconds: 5
+      restartPolicy: Always
