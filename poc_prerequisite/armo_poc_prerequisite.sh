@@ -27,10 +27,11 @@ check_network_accessibility() {
 
   local OUTPUT
   local FAILED_ADDRESSES=""
+  local POD_NAME="armo-network-check"
 
-  trap "kubectl delete pod armo-network-check" EXIT
+  trap "kubectl delete pod $POD_NAME" EXIT
 
-  OUTPUT=$(kubectl run armo-network-check --rm -it --image=busybox --env="IP_LIST=$IP_LIST" --restart=Never -- sh -c '
+  OUTPUT=$(kubectl run $POD_NAME --rm -it --image=busybox@sha256:50aa4698fa6262977cff89181b2664b99d8a56dbca847bf62f2ef04854597cf8 --env="IP_LIST=$IP_LIST" --restart=Never -- sh -c '
     FAILED_ADDRESSES=""
     
     for ADDR in $IP_LIST; do
