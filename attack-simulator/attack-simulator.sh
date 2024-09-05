@@ -8,7 +8,7 @@ POD_NAME="ping-app-$(date +%s)"
 NAMESPACE=$(kubectl config view --minify --output 'jsonpath={..namespace}')
 NAMESPACE=${NAMESPACE:-default}
 KUBESCAPE_NAMESPACE="kubescape"
-INITIATE_INCIDENTS_ONCE=false
+INTERACTIVE=false
 SKIP_PRE_CHECKS=false
 EXISTING_POD_NAME=""
 LEARNING_PERIOD="3m"
@@ -39,13 +39,30 @@ error_exit() {
     exit 1
 }
 
+kubectl_version_compatibility_check() {
+    # Get client and server versions
+    versions=$(kubectl version --output json)
+
+    # Extract and format full versions as major.minor (e.g., "1.30")
+    client_version=$(echo "$versions" | jq -r '.clientVersion | "\(.major).\(.minor|split("+")[0])"')
+    server_version=$(echo "$versions" | jq -r '.serverVersion | "\(.major).\(.minor|split("+")[0])"')
+
+    # Compare versions
+    if [[ "$client_version" == "$server_version" || "$client_version" == "1.$(( ${server_version#1.} + 1 ))" || "$server_version" == "1.$(( ${client_version#1.} + 1 ))" ]]; then
+        echo "✅ Client and server versions are compatible."
+    else
+        error_exit "Client and server versions are NOT compatible."
+    fi
+}
+
 # Function to print usage
 print_usage() {
-    echo "Usage: $0 [-n NAMESPACE] [--initiate-incidents-once] [--skip-pre-checks] [--use-existing-pod POD_NAME | --learning-period LEARNING_PERIOD] [-h]"
+    echo "Usage: $0 [-n NAMESPACE] [--kubescape-namespace] [--interactive] [--skip-pre-checks] [--use-existing-pod POD_NAME | --learning-period LEARNING_PERIOD] [-h]"
     echo
     echo "Options:"
     echo "  -n, --namespace NAMESPACE          Specify the namespace for deploying a new pod or locating an existing pod (default: current context namespace or 'default')."
-    echo "  --initiate-incidents-once          Trigger all security incidents once without prompting."
+    echo "  --kubescape-namespace              KUBESCAPE_NAMESPACE  Specify the namespace where Kubescape components are deployed (default: 'kubescape')."
+    echo "  --interactive                      Enable interactive mode. The script will wait for user input before initiating a threat incident."
     echo "  --skip-pre-checks                  Skip pre-checks for readiness and configurations."
     echo "  --use-existing-pod POD_NAME        Use an existing pod instead of deploying a new one."
     echo "  --learning-period LEARNING_PERIOD  Set the learning period duration (default: 3m). Should not be used with --use-existing-pod, as it applies only when creating a new pod."
@@ -66,8 +83,8 @@ while [[ "$#" -gt 0 ]]; do
             KUBESCAPE_NAMESPACE="$2"
             shift 2
             ;;
-        --initiate-incidents-once)
-            INITIATE_INCIDENTS_ONCE=true
+        --interactive)
+            INTERACTIVE=true
             shift
             ;;
         --skip-pre-checks)
@@ -114,6 +131,13 @@ fi
 ##############################################
 
 if [[ "$SKIP_PRE_CHECKS" == false ]]; then
+    echo "🔍 Verifying compatibility between the kubectl CLI version and the Kubernetes cluster..."
+    kubectl_version_compatibility_check
+
+    echo "🔍 Verifying that jq is installed..."
+    command -v jq &> /dev/null || error_exit "jq is not installed. Please install jq to continue. Exiting."
+    echo "✅ jq is installed."
+
     echo "🔍 Verifying that Kubescape's components are ready..."
     components=(
         storage
@@ -219,19 +243,19 @@ verify_detections() {
 ##############################
 
 initiate_security_incidents() {
-    echo "🚨 Initiating 'Unexpected process launched' security incident..."
+    echo "🎯 Initiating 'Unexpected process launched' security incident..."
     kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- ls > /dev/null 2>&1 || error_exit "Failed to list directory contents. Exiting."
     
-    echo "🚨 Initiating 'Unexpected service account token access' & 'Workload uses Kubernetes API unexpectedly' ('Kubernetes Client Executed' locally) security incidents..."
+    echo "🎯 Initiating 'Unexpected service account token access' & 'Workload uses Kubernetes API unexpectedly' ('Kubernetes Client Executed' locally) security incidents..."
     kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'curl -k -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" https://kubernetes.default.svc/api/v1/namespaces/default/pods > /dev/null 2>&1' || error_exit "Failed to initiate 'Unexpected service account token access' & 'Workload uses Kubernetes API unexpectedly' security incidents. Exiting."
     
-    echo "🚨 Initiating 'Soft link created over sensitive file' ('Symlink Created Over Sensitive File' locally) security incident..."
+    echo "🎯 Initiating 'Soft link created over sensitive file' ('Symlink Created Over Sensitive File' locally) security incident..."
     kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'ln -s -f /etc/passwd /tmp/asd > /dev/null 2>&1' || error_exit "Failed to initiate 'Soft link created over sensitive file' incident. Exiting."
     
-    echo "🚨 Initiating 'Environment Variables Read from procfs' security incident..."
+    echo "🎯 Initiating 'Environment Variables Read from procfs' security incident..."
     kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'cat /proc/self/environ > /dev/null 2>&1' || error_exit "Failed to initiate 'Environment Variables Read from procfs' incident. Exiting."
     
-    echo "🚨 Initiating 'Crypto mining domain communication' security incident..."
+    echo "🎯 Initiating 'Crypto mining domain communication' security incident..."
     kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'ping -c 1 data.miningpoolstats.stream > /dev/null 2>&1' || error_exit "Failed to initiate 'Crypto mining domain communication' incident. Exiting."
     
     echo "✅ All of the desired incidents detected successfully locally."
@@ -242,7 +266,7 @@ initiate_security_incidents() {
 #######
 
 # Check for command-line argument or loop for user input
-if $INITIATE_INCIDENTS_ONCE; then
+if ! $INTERACTIVE; then
     initiate_security_incidents
     sleep 5
     verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
