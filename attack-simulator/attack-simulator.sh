@@ -39,12 +39,29 @@ error_exit() {
     exit 1
 }
 
+kubectl_version_compatibility_check() {
+    # Get client and server versions
+    versions=$(kubectl version --output json)
+
+    # Extract and format full versions as major.minor (e.g., "1.30")
+    client_version=$(echo "$versions" | jq -r '.clientVersion | "\(.major).\(.minor|split("+")[0])"')
+    server_version=$(echo "$versions" | jq -r '.serverVersion | "\(.major).\(.minor|split("+")[0])"')
+
+    # Compare versions
+    if [[ "$client_version" == "$server_version" || "$client_version" == "1.$(( ${server_version#1.} + 1 ))" || "$server_version" == "1.$(( ${client_version#1.} + 1 ))" ]]; then
+        echo "✅ Client and server versions are compatible."
+    else
+        echo "❌ Client and server versions are NOT compatible."
+    fi
+}
+
 # Function to print usage
 print_usage() {
     echo "Usage: $0 [-n NAMESPACE] [--initiate-incidents-once] [--skip-pre-checks] [--use-existing-pod POD_NAME | --learning-period LEARNING_PERIOD] [-h]"
     echo
     echo "Options:"
     echo "  -n, --namespace NAMESPACE          Specify the namespace for deploying a new pod or locating an existing pod (default: current context namespace or 'default')."
+    echo "  --kubescape-namespace              KUBESCAPE_NAMESPACE  Specify the namespace where Kubescape components are deployed (default: 'kubescape')."
     echo "  --initiate-incidents-once          Trigger all security incidents once without prompting."
     echo "  --skip-pre-checks                  Skip pre-checks for readiness and configurations."
     echo "  --use-existing-pod POD_NAME        Use an existing pod instead of deploying a new one."

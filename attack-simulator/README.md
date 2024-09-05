@@ -30,6 +30,7 @@ The **Attack Simulator** is a script designed to simulate various security incid
 
 3. **Options**:
    - `-n, --namespace NAMESPACE`: Specify the namespace for deploying the pod (default: current context namespace or 'default').
+   - `--kubescape-namespace KUBESCAPE_NAMESPACE`: Specify the namespace where Kubescape components are deployed (default: 'kubescape').
    - `--initiate-incidents-once`: Automatically trigger all security incidents once without prompting.
    - `--skip-pre-checks`: Skip the pre-checks for component readiness and configuration.
    - `--use-existing-pod POD_NAME`: Use an existing pod instead of deploying a new one.
