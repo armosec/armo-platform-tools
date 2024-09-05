@@ -15,17 +15,17 @@ The **Attack Simulator** is a script designed to simulate various security incid
 1. **Prepare the Script**:
    - Make the script executable:
      ```bash
-     chmod +x kdr_demo.sh
+     chmod +x attack-simulator.sh
      ```
 
 2. **Run the Script**:
    - To deploy a new pod and initiate security incidents:
      ```bash
-     ./kdr_demo.sh
+     ./attack-simulator.sh
      ```
    - To specify a namespace or use other options, refer to the script’s help:
      ```bash
-     ./kdr_demo.sh --help
+     ./attack-simulator.sh --help
      ```
 
 3. **Options**:
@@ -39,7 +39,7 @@ The **Attack Simulator** is a script designed to simulate various security incid
 4. **Initiate Security Incidents**:
    - To automatically initiate incidents once:
      ```bash
-     ./kdr_demo.sh --initiate-incidents-once
+     ./attack-simulator.sh --initiate-incidents-once
      ```
    - To interactively initiate incidents based on prompts, simply run the script without the `--initiate-incidents-once` flag.
 
