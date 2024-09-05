@@ -114,13 +114,20 @@ done
 # Check command-line arguments
 ###############################
 
-# Check if the provided namespace exists
+# Check if the namespaces exist
 if [[ -n "$NAMESPACE" ]]; then
     if ! kubectl get namespace "$NAMESPACE" &> /dev/null; then
         error_exit "Namespace '$NAMESPACE' does not exist."
     fi
 fi
 
+if [[ -n "$KUBESCAPE_NAMESPACE" ]]; then
+    if ! kubectl get namespace "$KUBESCAPE_NAMESPACE" &> /dev/null; then
+        error_exit "Kubescape namespace '$KUBESCAPE_NAMESPACE' does not exist."
+    fi
+fi
+
+# Check if the learning period format is valid
 if [[ ! "$LEARNING_PERIOD" =~ ^[0-9]+[mh]$ ]]; then
     error_exit "Invalid learning period format: '$LEARNING_PERIOD'. It must be a positive integer followed by 'm' for minutes or 'h' for hours (e.g., '5m', '1h')."
 fi
