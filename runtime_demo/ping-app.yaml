@@ -4,7 +4,7 @@ metadata:
   name: ${POD_NAME}
   labels:
     app: ${POD_NAME}
-    kubescape.io/max-sniffing-time: 3m
+    kubescape.io/max-sniffing-time: ${LEARNING_PERIOD}
 spec:
   containers:
   - name: ${POD_NAME}
