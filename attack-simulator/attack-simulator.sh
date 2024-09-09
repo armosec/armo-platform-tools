@@ -9,7 +9,8 @@ NAMESPACE=$(kubectl config view --minify --output 'jsonpath={..namespace}')
 NAMESPACE=${NAMESPACE:-default}
 KUBESCAPE_NAMESPACE="kubescape"
 INTERACTIVE=false
-SKIP_PRE_CHECKS=false
+SKIP_PRE_CHECKS=()
+VERIFY_DETECTIONS=false
 EXISTING_POD_NAME=""
 LEARNING_PERIOD="3m"
 
@@ -26,20 +27,21 @@ cleanup() {
             echo "🧹 Cleaning up the pod: ${POD_NAME} in namespace: ${NAMESPACE}..."
             kubectl delete pod "${POD_NAME}" -n "${NAMESPACE}"
         else
-            echo "🚫 The pod '${POD_NAME}' was not deleted."
+            echo "⚠️ The pod '${POD_NAME}' was not deleted."
         fi
     else
-        echo "🛑 Skipping pod deletion since an existing pod '${EXISTING_POD_NAME}' was used."
+        echo "⏭️ Skipping pod deletion since an existing pod '${EXISTING_POD_NAME}' was used."
     fi
     trap - EXIT
 }
 
 error_exit() {
-    echo "❌ $1" 1>&2
+    echo "😿 $1" 1>&2
     exit 1
 }
 
 kubectl_version_compatibility_check() {
+    echo "🔍 Verifying compatibility between the kubectl CLI version and the Kubernetes cluster..."
     # Get client and server versions
     versions=$(kubectl version --output json)
 
@@ -49,21 +51,40 @@ kubectl_version_compatibility_check() {
 
     # Compare versions
     if [[ "$client_version" == "$server_version" || "$client_version" == "1.$(( ${server_version#1.} + 1 ))" || "$server_version" == "1.$(( ${client_version#1.} + 1 ))" ]]; then
-        echo "✅ Client and server versions are compatible."
+        echo "✅ Client '${client_version}' and server '${server_version}' versions are compatible."
     else
-        error_exit "Client and server versions are NOT compatible."
+        echo "⚠️ Client '${client_version}' and server '${server_version}' versions are NOT compatible."
     fi
+}
+
+check_kubescape_components() {
+    echo "🔍 Verifying that Kubescape's components are ready..."
+    components=(
+        storage
+        node-agent
+        gateway
+        operator
+        otel-collector
+        synchronizer
+        kollector
+    )
+    for component in "${components[@]}"; do
+        echo "Checking readiness of $component..."
+        kubectl wait -n "$KUBESCAPE_NAMESPACE" --for=condition=ready pod -l app.kubernetes.io/component="$component" --timeout=600s || error_exit "$component is not ready. Exiting."
+    done
+    echo "✅ All Kubescape's components are ready."
 }
 
 # Function to print usage
 print_usage() {
-    echo "Usage: $0 [-n NAMESPACE] [--kubescape-namespace] [--interactive] [--skip-pre-checks] [--use-existing-pod POD_NAME | --learning-period LEARNING_PERIOD] [-h]"
+    echo "Usage: $0 [-n NAMESPACE] [--kubescape-namespace] [--interactive] [--skip-pre-checks CHECK1,CHECK2,... | all] [--verify-detections] [--use-existing-pod POD_NAME | --learning-period LEARNING_PERIOD] [-h]"
     echo
     echo "Options:"
     echo "  -n, --namespace NAMESPACE          Specify the namespace for deploying a new pod or locating an existing pod (default: current context namespace or 'default')."
     echo "  --kubescape-namespace              KUBESCAPE_NAMESPACE  Specify the namespace where Kubescape components are deployed (default: 'kubescape')."
     echo "  --interactive                      Enable interactive mode. The script will wait for user input before initiating a threat incident."
-    echo "  --skip-pre-checks                  Skip pre-checks for readiness and configurations."
+    echo "  --skip-pre-checks                  Skip specific pre-checks or all. Accepts comma-separated values: 'kubectl_installed', 'kubectl_version', 'jq_installed', 'kubescape_components', 'runtime_detection', 'namespace_existence', or 'all' to skip all checks."
+    echo "  --verify-detections                Run local verification for detections."
     echo "  --use-existing-pod POD_NAME        Use an existing pod instead of deploying a new one."
     echo "  --learning-period LEARNING_PERIOD  Set the learning period duration (default: 3m). Should not be used with --use-existing-pod, as it applies only when creating a new pod."
     echo "  -h, --help                         Display this help message and exit."
@@ -88,7 +109,11 @@ while [[ "$#" -gt 0 ]]; do
             shift
             ;;
         --skip-pre-checks)
-            SKIP_PRE_CHECKS=true
+            IFS=',' read -r -a SKIP_PRE_CHECKS <<< "$2"
+            shift 2
+            ;;
+        --verify-detections)
+            VERIFY_DETECTIONS=true
             shift
             ;;
         --use-existing-pod)
@@ -114,55 +139,72 @@ done
 # Check command-line arguments
 ###############################
 
-# Check if the namespaces exist
-if [[ -n "$NAMESPACE" ]]; then
-    if ! kubectl get namespace "$NAMESPACE" &> /dev/null; then
-        error_exit "Namespace '$NAMESPACE' does not exist."
-    fi
-fi
-
-if [[ -n "$KUBESCAPE_NAMESPACE" ]]; then
-    if ! kubectl get namespace "$KUBESCAPE_NAMESPACE" &> /dev/null; then
-        error_exit "Kubescape namespace '$KUBESCAPE_NAMESPACE' does not exist."
-    fi
-fi
-
 # Check if the learning period format is valid
 if [[ ! "$LEARNING_PERIOD" =~ ^[0-9]+[mh]$ ]]; then
     error_exit "Invalid learning period format: '$LEARNING_PERIOD'. It must be a positive integer followed by 'm' for minutes or 'h' for hours (e.g., '5m', '1h')."
 fi
 
+#################################################
+# Helper function to check if a check is skipped
+#################################################
 
-##############################################
-# Verify Kubescape Runtime Detection is Ready
-##############################################
+skip_pre_check() {
+    local check_name="$1"
+    # If "all" is specified in SKIP_PRE_CHECKS, skip all checks
+    if [[ " ${SKIP_PRE_CHECKS[@]} " =~ " all " ]]; then
+        return 0
+    fi
+    # Check if the specific check should be skipped
+    for check in "${SKIP_PRE_CHECKS[@]}"; do
+        if [[ "$check" == "$check_name" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
 
-if [[ "$SKIP_PRE_CHECKS" == false ]]; then
-    echo "🔍 Verifying compatibility between the kubectl CLI version and the Kubernetes cluster..."
+######################################
+# Perform pre-checks (if not skipped)
+######################################
+
+if ! skip_pre_check "kubectl_installed"; then
+    echo "🔍 Verifying that kubectl is installed..."
+    command -v kubectl &> /dev/null || error_exit "kubectl is not installed. Please install kubectl to continue. Exiting."
+    echo "✅ kubectl is installed."
+fi
+
+if ! skip_pre_check "kubectl_version"; then
     kubectl_version_compatibility_check
+fi
 
+if ! skip_pre_check "jq_installed"; then
     echo "🔍 Verifying that jq is installed..."
     command -v jq &> /dev/null || error_exit "jq is not installed. Please install jq to continue. Exiting."
     echo "✅ jq is installed."
+fi
 
-    echo "🔍 Verifying that Kubescape's components are ready..."
-    components=(
-        storage
-        node-agent
-        gateway
-        operator
-        otel-collector
-        synchronizer
-        kollector
-    )
-    for component in "${components[@]}"; do
-        echo "Checking readiness of $component..."
-        kubectl wait -n "$KUBESCAPE_NAMESPACE" --for=condition=ready pod -l app.kubernetes.io/component="$component" --timeout=600s || error_exit "$component is not ready. Exiting."
-    done
-    echo "✅ All Kubescape's components are ready."
+if ! skip_pre_check "kubescape_components"; then
+    check_kubescape_components
+fi
 
+if ! skip_pre_check "runtime_detection"; then
     echo "🔍 Checking if Runtime Detection is enabled..."
-    kubectl get cm node-agent -n "$KUBESCAPE_NAMESPACE" -o jsonpath='{.data.config\.json}' | jq '.applicationProfileServiceEnabled and .runtimeDetectionEnabled' | grep true || error_exit "One or both of 'applicationProfileServiceEnabled' and 'runtimeDetectionEnabled' are not enabled. Exiting."
+    kubectl get cm node-agent -n "$KUBESCAPE_NAMESPACE" -o jsonpath='{.data.config\.json}' | jq '.applicationProfileServiceEnabled and .runtimeDetectionEnabled' | grep true &> /dev/null || error_exit "One or both of 'applicationProfileServiceEnabled' and 'runtimeDetectionEnabled' are not enabled. Exiting."
+    echo "✅ Runtime Detection is enabled."
+fi
+
+if ! skip_pre_check "namespace_existence"; then
+    if [[ -n "$NAMESPACE" ]]; then
+        if ! kubectl get namespace "$NAMESPACE" &> /dev/null; then
+            error_exit "Namespace '$NAMESPACE' does not exist."
+        fi
+    fi
+
+    if [[ -n "$KUBESCAPE_NAMESPACE" ]]; then
+        if ! kubectl get namespace "$KUBESCAPE_NAMESPACE" &> /dev/null; then
+            error_exit "Kubescape namespace '$KUBESCAPE_NAMESPACE' does not exist."
+        fi
+    fi
 fi
 
 #####################################
@@ -224,6 +266,8 @@ fi
 ############################
 
 verify_detections() {
+    echo "🔍 Running detection verification..."
+    
     NODE_NAME=$(kubectl get pod "${POD_NAME}" -n "${NAMESPACE}" -o jsonpath='{.spec.nodeName}') || error_exit "Failed to retrieve the node name. Exiting."
     echo "✅ Web app pod '${POD_NAME}' is running on node: ${NODE_NAME} in namespace: ${NAMESPACE}."
 
@@ -237,10 +281,10 @@ verify_detections() {
 
     echo "🔍 Verifying all detections in logs..."
     for detection in "${detections[@]}"; do
-        if echo "$log_output" | grep -iq "${detection}.*${POD_NAME}"; then
+        if echo "$log_output" | grep -iq "${detection}.*${POD_NAME}" 2>/dev/null; then
             echo "✅ Detection '${detection}' found for pod '${POD_NAME}'."
         else
-            echo "❌ Detection '${detection}' not found for pod '${POD_NAME}'."
+            echo "⚠️ Detection '${detection}' not found for pod '${POD_NAME}'."
         fi
     done
 }
@@ -275,22 +319,26 @@ initiate_security_incidents() {
 # Check for command-line argument or loop for user input
 if ! $INTERACTIVE; then
     initiate_security_incidents
-    sleep 5
-    verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
-
+    if [[ "$VERIFY_DETECTIONS" == true ]]; then
+        sleep 5
+        verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
+    fi
     echo "✅ Exiting after one-time incident initiation."
 else
     while true; do
-        read -p "⚠️ Do you want to initiate a security incident? [y/n]: " choice
+        echo
+        read -p "👩‍🔬 Do you want to initiate a security incident? [y/n]: " choice
         if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
             initiate_security_incidents
-            sleep 5
-            verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
+            if [[ "$VERIFY_DETECTIONS" == true ]]; then
+                sleep 5
+                verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
+            fi
         elif [[ "$choice" == "n" || "$choice" == "N" ]]; then
             echo "⏭️ Skipping further security incident initiation."
             break
         else
-            echo "❌ Invalid input. Please enter 'y' or 'n'."
+            echo "⚠️ Invalid input. Please enter 'y' or 'n'."
         fi
     done
 
