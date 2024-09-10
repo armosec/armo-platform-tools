@@ -355,9 +355,9 @@ case $MODE in
             kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c "$choice" || error_exit "Failed to execute the command. Exiting."
             sleep 1.5
             echo "🔍 Checking for threat detections triggered by your command..."
-            echo "========================================="
+            echo "============================================================="
             echo " Detection logged by the node-agent for the executed command"
-            echo "========================================="
+            echo "============================================================="
             node_agent_logs=$(kubectl logs --since-time "${checkpoint}" -n "$KUBESCAPE_NAMESPACE" "${NODE_AGENT_POD}" || error_exit "Failed to fetch logs from node-agent pod. Exiting." 2>/dev/null)
             # Check if logs are empty
             if [[ -z "$node_agent_logs" ]]; then
@@ -367,13 +367,13 @@ case $MODE in
                 echo "✅ Command executed and detection logs retrieved."
             fi
 
-            echo "========================================="
+            echo "========================================================="
             echo " Synchronizer activities logged for the executed command"
-            echo "========================================="
+            echo "========================================================="
             synchronizer_logs=$(kubectl logs --since-time "${checkpoint}" -n "$KUBESCAPE_NAMESPACE" "deployment.apps/synchronizer" || error_exit "Failed to fetch logs from node-agent pod. Exiting." 2>/dev/null)
             # Check if logs are empty
             if [[ -z "$synchronizer_logs" ]]; then
-                echo "⚠️ No threats found for the executed command."
+                echo "⚠️ No updates sent to Armo by the synchronizer for the executed command."
             else
                 echo "$synchronizer_logs"
                 echo "✅ Command executed and synchronizer logs retrieved."
