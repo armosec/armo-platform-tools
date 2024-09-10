@@ -8,7 +8,7 @@ POD_NAME="ping-app-$(date +%s)"
 NAMESPACE=$(kubectl config view --minify --output 'jsonpath={..namespace}')
 NAMESPACE=${NAMESPACE:-default}
 KUBESCAPE_NAMESPACE="kubescape"
-INTERACTIVE=false
+MODE="run_all_once" # Default mode
 SKIP_PRE_CHECKS=()
 VERIFY_DETECTIONS=false
 EXISTING_POD_NAME=""
@@ -77,16 +77,26 @@ check_kubescape_components() {
 
 # Function to print usage
 print_usage() {
-    echo "Usage: $0 [-n NAMESPACE] [--kubescape-namespace] [--interactive] [--skip-pre-checks CHECK1,CHECK2,... | all] [--verify-detections] [--use-existing-pod POD_NAME | --learning-period LEARNING_PERIOD] [-h]"
+    echo "Usage: $0 [-n NAMESPACE] [--kubescape-namespace] [--mode MODE] [--skip-pre-checks CHECK1,CHECK2,... | all] [--verify-detections] [--use-existing-pod POD_NAME | --learning-period LEARNING_PERIOD] [-h]"
     echo
     echo "Options:"
     echo "  -n, --namespace NAMESPACE          Specify the namespace for deploying a new pod or locating an existing pod (default: current context namespace or 'default')."
     echo "  --kubescape-namespace              KUBESCAPE_NAMESPACE  Specify the namespace where Kubescape components are deployed (default: 'kubescape')."
-    echo "  --interactive                      Enable interactive mode. The script will wait for user input before initiating a threat incident."
-    echo "  --skip-pre-checks                  Skip specific pre-checks or all. Accepts comma-separated values: 'kubectl_installed', 'kubectl_version', 'jq_installed', 'kubescape_components', 'runtime_detection', 'namespace_existence', or 'all' to skip all checks."
+    echo "  --mode                             Set the execution mode. Available modes:"
+    echo "                                      - 'interactive': Wait for user input to initiate security incidents."
+    echo "                                      - 'investigation': Allows you to run any command and automatically prints local detections triggered by the command."
+    echo "                                      - 'run_all_once' (default): Automatically initiates security incidents once and exits."
     echo "  --verify-detections                Run local verification for detections."
     echo "  --use-existing-pod POD_NAME        Use an existing pod instead of deploying a new one."
     echo "  --learning-period LEARNING_PERIOD  Set the learning period duration (default: 3m). Should not be used with --use-existing-pod, as it applies only when creating a new pod."
+    echo "  --skip-pre-checks                  Skip specific pre-checks before running the script. Available options:"
+    echo "                                      - 'kubectl_installed': Skips checking if 'kubectl' is installed."
+    echo "                                      - 'kubectl_version': Skips the check that ensures the 'kubectl' client version is compatible with the Kubernetes cluster, which verifies that the client and server versions are either the same or within one minor version."
+    echo "                                      - 'jq_installed': Skips checking if 'jq' is installed."
+    echo "                                      - 'kubescape_components': Skips checking if Kubescape components are installed and ready."
+    echo "                                      - 'runtime_detection': Skips checking if runtime detection is enabled in Kubescape."
+    echo "                                      - 'namespace_existence': Skips checking if the specified namespaces exist."
+    echo "                                      - 'all': Skips all of the above pre-checks."
     echo "  -h, --help                         Display this help message and exit."
 }
 
@@ -104,9 +114,9 @@ while [[ "$#" -gt 0 ]]; do
             KUBESCAPE_NAMESPACE="$2"
             shift 2
             ;;
-        --interactive)
-            INTERACTIVE=true
-            shift
+        --mode)
+            MODE="$2"
+            shift 2
             ;;
         --skip-pre-checks)
             IFS=',' read -r -a SKIP_PRE_CHECKS <<< "$2"
@@ -265,16 +275,16 @@ fi
 # Verify Detections Locally
 ############################
 
+NODE_NAME=$(kubectl get pod "${POD_NAME}" -n "${NAMESPACE}" -o jsonpath='{.spec.nodeName}') || error_exit "Failed to retrieve the node name. Exiting."
+echo "✅ Web app pod '${POD_NAME}' is running on node: ${NODE_NAME} in namespace: ${NAMESPACE}."
+
+echo "🔍 Finding the node-agent pod running on the same node..."
+NODE_AGENT_POD=$(kubectl get pods -n "$KUBESCAPE_NAMESPACE" -l app=node-agent -o jsonpath="{.items[?(@.spec.nodeName=='${NODE_NAME}')].metadata.name}") || error_exit "Failed to find the node-agent pod. Exiting."
+echo "✅ Node-agent pod identified: ${NODE_AGENT_POD}."
+
 verify_detections() {
     echo "🔍 Running detection verification..."
     
-    NODE_NAME=$(kubectl get pod "${POD_NAME}" -n "${NAMESPACE}" -o jsonpath='{.spec.nodeName}') || error_exit "Failed to retrieve the node name. Exiting."
-    echo "✅ Web app pod '${POD_NAME}' is running on node: ${NODE_NAME} in namespace: ${NAMESPACE}."
-
-    echo "🔍 Finding the node-agent pod running on the same node..."
-    NODE_AGENT_POD=$(kubectl get pods -n "$KUBESCAPE_NAMESPACE" -l app=node-agent -o jsonpath="{.items[?(@.spec.nodeName=='${NODE_NAME}')].metadata.name}") || error_exit "Failed to find the node-agent pod. Exiting."
-    echo "✅ Node-agent pod identified: ${NODE_AGENT_POD}."
-
     local detections=("$@") # Accept detections as parameters
     echo "🔍 Fetching logs from node-agent pod..."
     log_output=$(kubectl logs -n "$KUBESCAPE_NAMESPACE" "${NODE_AGENT_POD}") || error_exit "Failed to fetch logs from node-agent pod. Exiting."
@@ -316,33 +326,69 @@ initiate_security_incidents() {
 # Main
 #######
 
-# Check for command-line argument or loop for user input
-if ! $INTERACTIVE; then
-    initiate_security_incidents
-    if [[ "$VERIFY_DETECTIONS" == true ]]; then
-        sleep 5
-        verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
-    fi
-    echo "✅ Exiting after one-time incident initiation."
-else
-    while true; do
-        echo
-        read -p "👩‍🔬 Do you want to initiate a security incident? [y/n]: " choice
-        if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
-            initiate_security_incidents
-            if [[ "$VERIFY_DETECTIONS" == true ]]; then
-                sleep 5
-                verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
+case $MODE in
+    "interactive")
+        while true; do
+            echo
+            read -p "👩‍🔬 Do you want to initiate a security incident? [y/n]: " choice
+            if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+                initiate_security_incidents
+                if [[ "$VERIFY_DETECTIONS" == true ]]; then
+                    sleep 5
+                    verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
+                fi
+            elif [[ "$choice" == "n" || "$choice" == "N" ]]; then
+                echo "⏭️ Skipping further security incident initiation."
+                break
+            else
+                echo "⚠️ Invalid input. Please enter 'y' or 'n'."
             fi
-        elif [[ "$choice" == "n" || "$choice" == "N" ]]; then
-            echo "⏭️ Skipping further security incident initiation."
-            break
-        else
-            echo "⚠️ Invalid input. Please enter 'y' or 'n'."
+        done
+        ;;
+    "investigation")
+        echo "💻 Run a shell command to check for Armo threat detection:"
+        while true; do
+            echo
+            read -p "$ " choice
+            echo $choice
+            checkpoint=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c "$choice" || error_exit "Failed to execute the command. Exiting."
+            sleep 1.5
+            echo "🔍 Checking for threat detections triggered by your command..."
+            echo "========================================="
+            echo " Detection logged by the node-agent for the executed command"
+            echo "========================================="
+            node_agent_logs=$(kubectl logs --since-time "${checkpoint}" -n "$KUBESCAPE_NAMESPACE" "${NODE_AGENT_POD}" || error_exit "Failed to fetch logs from node-agent pod. Exiting." 2>/dev/null)
+            # Check if logs are empty
+            if [[ -z "$node_agent_logs" ]]; then
+                echo "⚠️ No threats found for the executed command."
+            else
+                echo "$node_agent_logs"
+                echo "✅ Command executed and detection logs retrieved."
+            fi
+
+            echo "========================================="
+            echo " Synchronizer activities logged for the executed command"
+            echo "========================================="
+            synchronizer_logs=$(kubectl logs --since-time "${checkpoint}" -n "$KUBESCAPE_NAMESPACE" "deployment.apps/synchronizer" || error_exit "Failed to fetch logs from node-agent pod. Exiting." 2>/dev/null)
+            # Check if logs are empty
+            if [[ -z "$synchronizer_logs" ]]; then
+                echo "⚠️ No threats found for the executed command."
+            else
+                echo "$synchronizer_logs"
+                echo "✅ Command executed and synchronizer logs retrieved."
+            fi
+        done
+        ;;
+    "run_all_once" | *)
+        initiate_security_incidents
+        if [[ "$VERIFY_DETECTIONS" == true ]]; then
+            sleep 5
+            verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
         fi
-    done
+        echo "✅ Exiting after one-time incident initiation."
+        ;;
+esac
 
-    cleanup
-fi
-
+cleanup
 echo "✅ Script execution completed successfully."

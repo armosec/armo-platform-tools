@@ -15,8 +15,10 @@ Before running the **Attack Simulator**, ensure you have the following:
 ## Usage Instructions
 
 1. **Prepare the Script**:
-   - Make the script executable by running the following command:
+   - Download the script and make it executable by running the following command:
      ```bash
+     git clone https://github.com/armosec/armo-platform-tools.git
+     cd armo-platform-tools/attack-simulator/
      chmod +x attack-simulator.sh
      ```
 
@@ -33,21 +35,53 @@ Before running the **Attack Simulator**, ensure you have the following:
 3. **Options**:
    - `-n, --namespace NAMESPACE`: Specify the namespace where the pod should be deployed (default: uses the current context namespace or 'default').
    - `--kubescape-namespace KUBESCAPE_NAMESPACE`: Specify the namespace where Kubescape components are deployed (default: 'kubescape').
-   - `--interactive`: Interactively initiate security incidents based on user prompts.
-   - `--skip-pre-checks`: Skip the initial pre-checks that ensure component readiness and proper configuration.
+   - `--mode MODE`: Set the execution mode. Available modes:
+     - `investigation`: Allows you to run any command and automatically prints local detections triggered by the command.
+     - `interactive`: The script will wait for user input to initiate security incidents.
+     - `run_all_once` (default): Automatically initiates security incidents once and exits.
+   - `--verify-detections`: Run local verification for detections.
    - `--use-existing-pod POD_NAME`: Use an existing pod for the simulation instead of deploying a new one.
    - `--learning-period LEARNING_PERIOD`: Define the duration for the learning period of the web app (default: 3 minutes). This option is applicable only when deploying a new pod.
+   - `--skip-pre-checks CHECK1,CHECK2,... | all`: Skip specific pre-checks before the script runs. Available options:
+     - `kubectl_installed`: Skips checking if 'kubectl' is installed.
+     - `kubectl_version`: Skips checking if the 'kubectl' client version is compatible with the Kubernetes cluster. This check ensures the client and server versions are either the same or within one minor version. For example, a client version `1.21` would be compatible with a server version `1.21` or `1.22`.
+     - `jq_installed`: Skips checking if 'jq' is installed.
+     - `kubescape_components`: Skips checking if Kubescape components are installed and ready.
+     - `runtime_detection`: Skips checking if runtime detection is enabled in Kubescape.
+     - `namespace_existence`: Skips checking if the specified namespaces exist.
+     - `all`: Skips all the pre-checks mentioned above.
    - `-h, --help`: Display detailed usage information and exit.
 
-4. **Initiate Security Incidents**:
-   - To initiate incidents interactively based on user prompts, use the `--interactive` flag:
-     ```bash
-     ./attack-simulator.sh --interactive
-     ```
-   - To automatically initiate incidents without user prompts, run the script without the `--interactive` flag.
-
-5. **Cleanup**:
+4. **Cleanup**:
    - After running the simulation, the script will prompt you to decide whether to delete the deployed pod. You can choose to clean up or retain the pod for further analysis and investigation.
+
+## Extended Usage Examples
+Here are some examples of how to use the script with different flags and modes:
+  - **Run in `investigation` mode**:
+    In this mode, you can enter any command, and the script will automatically display any threat detections triggered by the command.
+    ```bash
+    ./attack-simulator.sh --mode investigation
+    ```
+  - **Run in `interactive` mode**:
+    This will prompt you for confirmation before security incidents are initiated.
+    ```bash
+    ./attack-simulator.sh --mode interactive
+    ```
+  - **Skipping Specific Pre-checks**:
+    This example skips checking whether `kubectl` and `jq` are installed and bypasses the `runtime_detection` enablement check.
+    ```bash
+    ./attack-simulator.sh --skip-pre-checks kubectl_installed,jq_installed,runtime_detection
+    ```
+  - **Verifying Detections Locally**:
+    Use this command to verify local detections triggered by the incidents without re-running the simulation.
+    ```bash
+    ./attack-simulator.sh --verify-detections
+    ```
+  - **Using an Existing Pod (will run faster)**:
+    If you want to reuse an existing pod (my-existing-pod) for the simulation instead of deploying a new one:
+    ```bash
+    ./attack-simulator.sh --use-existing-pod my-existing-pod
+    ```
 
 ## How It Works
 
