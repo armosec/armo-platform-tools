@@ -251,7 +251,7 @@ else
     echo "🚀 Deploying the web app with a learning period of ⏰ ${LEARNING_PERIOD}: ${POD_NAME} in namespace: ${NAMESPACE}..."
     sed -e "s/\${POD_NAME}/${POD_NAME}/g" -e "s/\${LEARNING_PERIOD}/${LEARNING_PERIOD}/g" ping-app.yaml | kubectl apply -f - -n "${NAMESPACE}" || error_exit "Failed to apply 'ping-app.yaml'. Exiting."
     echo "⏳ Waiting for the web app pod to be ready in namespace: ${NAMESPACE}..."
-    kubectl wait --for=condition=ready pod -l app="${POD_NAME}" -n "${NAMESPACE}" --timeout=600s || error_exit "Web app pod is not ready. Exiting."
+    kubectl wait --for=condition=ready pod -l app="${POD_NAME}" -n "${NAMESPACE}" --timeout=600s || error_exit "${POD_NAME} pod is not ready. Exiting."
 
     ###################################################
     # Wait for the Application Profile to be Completed
@@ -263,7 +263,7 @@ else
     error_exit "Application profile is not initializing or ready. Exiting."
 
     echo "🛠️ Generating activities to populate the application profile..."
-    kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'cat && curl --help > /dev/null 2>&1 && ping -c 1 1.1.1.1 > /dev/null 2>&1 && ln -s /dev/null /tmp/null_link' || error_exit "Failed to generate activities. Exiting."
+    kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'cat && curl --help > /dev/null 2>&1 && ping -c 1 1.1.1.1 > /dev/null 2>&1 && ln -sf /dev/null /tmp/null_link' || echo "⚠️ Failed to generate at least one of the pre-run activities."
 
     echo "⏳ Waiting for the application profile to be completed..."
     kubectl wait --for=jsonpath='{.metadata.annotations.kubescape\.io/status}'=completed applicationprofiles.spdx.softwarecomposition.kubescape.io/pod-"${POD_NAME}" -n "${NAMESPACE}" --timeout=600s || error_exit "Application profile is not completed. Exiting."
@@ -305,19 +305,19 @@ verify_detections() {
 
 initiate_security_incidents() {
     echo "🎯 Initiating 'Unexpected process launched' security incident..."
-    kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- ls > /dev/null 2>&1 || error_exit "Failed to list directory contents. Exiting."
+    kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- ls > /dev/null 2>&1 || echo "⚠️ Failed to list directory contents. Exiting."
     
     echo "🎯 Initiating 'Unexpected service account token access' & 'Workload uses Kubernetes API unexpectedly' ('Kubernetes Client Executed' locally) security incidents..."
-    kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'curl -k -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" https://kubernetes.default.svc/api/v1/namespaces/default/pods > /dev/null 2>&1' || error_exit "Failed to initiate 'Unexpected service account token access' & 'Workload uses Kubernetes API unexpectedly' security incidents. Exiting."
+    kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'curl -k -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" https://kubernetes.default.svc/api/v1/namespaces/default/pods > /dev/null 2>&1' || echo "⚠️ Failed to initiate 'Unexpected service account token access' & 'Workload uses Kubernetes API unexpectedly' security incidents. Exiting."
     
     echo "🎯 Initiating 'Soft link created over sensitive file' ('Symlink Created Over Sensitive File' locally) security incident..."
-    kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'ln -s -f /etc/passwd /tmp/asd > /dev/null 2>&1' || error_exit "Failed to initiate 'Soft link created over sensitive file' incident. Exiting."
+    kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'ln -sf /etc/passwd /tmp/asd > /dev/null 2>&1' || echo "⚠️ Failed to initiate 'Soft link created over sensitive file' incident. Exiting."
     
     echo "🎯 Initiating 'Environment Variables Read from procfs' security incident..."
-    kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'cat /proc/self/environ > /dev/null 2>&1' || error_exit "Failed to initiate 'Environment Variables Read from procfs' incident. Exiting."
+    kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'cat /proc/self/environ > /dev/null 2>&1' || echo "⚠️ Failed to initiate 'Environment Variables Read from procfs' incident. Exiting."
     
     echo "🎯 Initiating 'Crypto mining domain communication' security incident..."
-    kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'ping -c 1 data.miningpoolstats.stream > /dev/null 2>&1' || error_exit "Failed to initiate 'Crypto mining domain communication' incident. Exiting."
+    kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'ping -c 1 data.miningpoolstats.stream > /dev/null 2>&1' || echo "⚠️ Failed to initiate 'Crypto mining domain communication' incident. Exiting."
     
     echo "✅ All of the desired incidents detected successfully locally."
 }
@@ -352,7 +352,7 @@ case $MODE in
             read -p "$ " choice
             echo $choice
             checkpoint=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-            kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c "$choice" || error_exit "Failed to execute the command. Exiting."
+            kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c "$choice" || echo "⚠️ Failed to execute the command. Exiting."
             sleep 1.5
             echo "🔍 Checking for threat detections triggered by your command..."
             echo "============================================================="
