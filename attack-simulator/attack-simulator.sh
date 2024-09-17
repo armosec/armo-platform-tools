@@ -19,7 +19,7 @@ LEARNING_PERIOD="3m"
 #######################
 
 cleanup() {
-    if [[ -z "$EXISTING_POD_NAME" ]]; then
+    if [[ -z "${EXISTING_POD_NAME}" ]]; then
         # Prompt to delete the ${POD_NAME} pod
         read -p "🗑️ Would you like to delete the pod '${POD_NAME}'? [Y/n] " -r
         REPLY=${REPLY:-Y}
@@ -46,11 +46,11 @@ kubectl_version_compatibility_check() {
     versions=$(kubectl version --output json)
 
     # Extract and format full versions as major.minor (e.g., "1.30")
-    client_version=$(echo "$versions" | jq -r '.clientVersion | "\(.major).\(.minor|split("+")[0])"')
-    server_version=$(echo "$versions" | jq -r '.serverVersion | "\(.major).\(.minor|split("+")[0])"')
+    client_version=$(echo "${versions}" | jq -r '.clientVersion | "\(.major).\(.minor|split("+")[0])"')
+    server_version=$(echo "${versions}" | jq -r '.serverVersion | "\(.major).\(.minor|split("+")[0])"')
 
     # Compare versions
-    if [[ "$client_version" == "$server_version" || "$client_version" == "1.$(( ${server_version#1.} + 1 ))" || "$server_version" == "1.$(( ${client_version#1.} + 1 ))" ]]; then
+    if [[ "${client_version}" == "${server_version}" || "${client_version}" == "1.$(( ${server_version#1.} + 1 ))" || "${server_version}" == "1.$(( ${client_version#1.} + 1 ))" ]]; then
         echo "✅ Client '${client_version}' and server '${server_version}' versions are compatible."
     else
         echo "⚠️ Client '${client_version}' and server '${server_version}' versions are NOT compatible."
@@ -70,7 +70,7 @@ check_kubescape_components() {
     )
     for component in "${components[@]}"; do
         echo "Checking readiness of $component..."
-        kubectl wait -n "$KUBESCAPE_NAMESPACE" --for=condition=ready pod -l app.kubernetes.io/component="$component" --timeout=600s || error_exit "$component is not ready. Exiting."
+        kubectl wait -n "${KUBESCAPE_NAMESPACE}" --for=condition=ready pod -l app.kubernetes.io/component="${component}" --timeout=600s || error_exit "$component is not ready. Exiting."
     done
     echo "✅ All Kubescape's components are ready."
 }
@@ -127,6 +127,7 @@ while [[ "$#" -gt 0 ]]; do
             shift
             ;;
         --use-existing-pod)
+            POD_NAME="$2"
             EXISTING_POD_NAME="$2"
             shift 2
             ;;
@@ -145,14 +146,18 @@ while [[ "$#" -gt 0 ]]; do
     esac
 done
 
-###############################
-# Check command-line arguments
-###############################
+##############################
+# Post-Argument parsing steps
+##############################
 
 # Check if the learning period format is valid
-if [[ ! "$LEARNING_PERIOD" =~ ^[0-9]+[mh]$ ]]; then
-    error_exit "Invalid learning period format: '$LEARNING_PERIOD'. It must be a positive integer followed by 'm' for minutes or 'h' for hours (e.g., '5m', '1h')."
+if [[ ! "${LEARNING_PERIOD}" =~ ^[0-9]+[mh]$ ]]; then
+    error_exit "Invalid learning period format: '${LEARNING_PERIOD}'. It must be a positive integer followed by 'm' for minutes or 'h' for hours (e.g., '5m', '1h')."
 fi
+
+# Set Application Profile's default values
+APP_PROFILE_NAME="applicationprofiles.spdx.softwarecomposition.kubescape.io/pod-${POD_NAME}"
+STATUS_JSONPATH='{.metadata.annotations.kubescape\.io/status}'
 
 #################################################
 # Helper function to check if a check is skipped
@@ -166,7 +171,7 @@ skip_pre_check() {
     fi
     # Check if the specific check should be skipped
     for check in "${SKIP_PRE_CHECKS[@]}"; do
-        if [[ "$check" == "$check_name" ]]; then
+        if [[ "${check}" == "${check_name}" ]]; then
             return 0
         fi
     done
@@ -199,20 +204,20 @@ fi
 
 if ! skip_pre_check "runtime_detection"; then
     echo "🔍 Checking if Runtime Detection is enabled..."
-    kubectl get cm node-agent -n "$KUBESCAPE_NAMESPACE" -o jsonpath='{.data.config\.json}' | jq '.applicationProfileServiceEnabled and .runtimeDetectionEnabled' | grep true &> /dev/null || error_exit "One or both of 'applicationProfileServiceEnabled' and 'runtimeDetectionEnabled' are not enabled. Exiting."
+    kubectl get cm node-agent -n "${KUBESCAPE_NAMESPACE}" -o jsonpath='{.data.config\.json}' | jq '.applicationProfileServiceEnabled and .runtimeDetectionEnabled' | grep true &> /dev/null || error_exit "One or both of 'applicationProfileServiceEnabled' and 'runtimeDetectionEnabled' are not enabled. Exiting."
     echo "✅ Runtime Detection is enabled."
 fi
 
 if ! skip_pre_check "namespace_existence"; then
-    if [[ -n "$NAMESPACE" ]]; then
-        if ! kubectl get namespace "$NAMESPACE" &> /dev/null; then
-            error_exit "Namespace '$NAMESPACE' does not exist."
+    if [[ -n "${NAMESPACE}" ]]; then
+        if ! kubectl get namespace "${NAMESPACE}" &> /dev/null; then
+            error_exit "Namespace '${NAMESPACE}' does not exist."
         fi
     fi
 
-    if [[ -n "$KUBESCAPE_NAMESPACE" ]]; then
-        if ! kubectl get namespace "$KUBESCAPE_NAMESPACE" &> /dev/null; then
-            error_exit "Kubescape namespace '$KUBESCAPE_NAMESPACE' does not exist."
+    if [[ -n "${KUBESCAPE_NAMESPACE}" ]]; then
+        if ! kubectl get namespace "${KUBESCAPE_NAMESPACE}" &> /dev/null; then
+            error_exit "Kubescape namespace '${KUBESCAPE_NAMESPACE}' does not exist."
         fi
     fi
 fi
@@ -222,26 +227,24 @@ fi
 #####################################
 
 # Check if the provided pod exists, is ready, and if its application profile exists and is completed
-if [[ -n "$EXISTING_POD_NAME" ]]; then
+if [[ -n "${EXISTING_POD_NAME}" ]]; then
     echo "🔍 Checking if the pod and its application profile are ready..."
 
     # Check if the pod exists and is ready
-    pod_ready_status=$(kubectl get pod -n "$NAMESPACE" "$EXISTING_POD_NAME" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null) || \
-    error_exit "Pod '$EXISTING_POD_NAME' in namespace '$NAMESPACE' does not exist."
+    pod_ready_status=$(kubectl get pod -n "${NAMESPACE}" "${POD_NAME}" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null) || \
+    error_exit "Pod '${POD_NAME}' in namespace '${NAMESPACE}' does not exist."
     
-    if [[ "$pod_ready_status" != "True" ]]; then
-        error_exit "Pod '$EXISTING_POD_NAME' in namespace '$NAMESPACE' is not ready."
+    if [[ "${pod_ready_status}" != "True" ]]; then
+        error_exit "Pod '${POD_NAME}' in namespace '${NAMESPACE}' is not ready."
     fi
 
     # Check if the application profile exists and is completed
-    application_profile_status=$(kubectl get applicationprofiles.spdx.softwarecomposition.kubescape.io "pod-${EXISTING_POD_NAME}" -n "$NAMESPACE" -o jsonpath='{.metadata.annotations.kubescape\.io/status}' 2>/dev/null) || \
-    error_exit "Application profile for pod '$EXISTING_POD_NAME' in namespace '$NAMESPACE' does not exist."
+    application_profile_status=$(kubectl get "${APP_PROFILE_NAME}" -n "${NAMESPACE}" -o jsonpath="${STATUS_JSONPATH}" 2>/dev/null) || \
+    error_exit "Application profile for pod '${POD_NAME}' in namespace '${NAMESPACE}' does not exist."
 
-    if [[ "$application_profile_status" != "completed" ]]; then
-        error_exit "Application profile for pod '$EXISTING_POD_NAME' in namespace '$NAMESPACE' is not completed (current status: $application_profile_status)."
+    if [[ "${application_profile_status}" != "completed" ]]; then
+        error_exit "Application profile for pod '${POD_NAME}' in namespace '${NAMESPACE}' is not completed (current status: $application_profile_status)."
     fi
-
-    POD_NAME="$EXISTING_POD_NAME"
 
     echo "✅ The provided pod and its application profile are ready."
 else
@@ -257,16 +260,23 @@ else
     # Wait for the Application Profile to be Completed
     ###################################################
 
+    retries=10
+    echo "⏳ Waiting for the application profile to be created..."
+        until output=$(kubectl get "${APP_PROFILE_NAME}" -n "${NAMESPACE}" 2>/dev/null) || ((--retries == 0)); do
+        sleep 1
+    done
+    [[ $retries -gt 0 ]] && echo "✅ The application profile is created." || error_exit "The application profile was not created after max retries. Exiting"
+    
     echo "⏳ Waiting for the application profile to initialize or be ready..."
-    kubectl wait --for=jsonpath='{.metadata.annotations.kubescape\.io/status}'=initializing applicationprofiles.spdx.softwarecomposition.kubescape.io/pod-"${POD_NAME}" -n "${NAMESPACE}" --timeout=5s || \
-    kubectl wait --for=jsonpath='{.metadata.annotations.kubescape\.io/status}'=ready applicationprofiles.spdx.softwarecomposition.kubescape.io/pod-"${POD_NAME}" -n "${NAMESPACE}" --timeout=300s || \
+    kubectl wait --for=jsonpath="${STATUS_JSONPATH}"=initializing "${APP_PROFILE_NAME}" -n "${NAMESPACE}" --timeout=5s || \
+    kubectl wait --for=jsonpath="${STATUS_JSONPATH}"=ready "${APP_PROFILE_NAME}" -n "${NAMESPACE}" --timeout=300s || \
     error_exit "Application profile is not initializing or ready. Exiting."
 
     echo "🛠️ Generating activities to populate the application profile..."
     kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'cat && curl --help > /dev/null 2>&1 && ping -c 1 1.1.1.1 > /dev/null 2>&1 && ln -sf /dev/null /tmp/null_link' || echo "⚠️ Failed to generate at least one of the pre-run activities."
 
     echo "⏳ Waiting for the application profile to be completed..."
-    kubectl wait --for=jsonpath='{.metadata.annotations.kubescape\.io/status}'=completed applicationprofiles.spdx.softwarecomposition.kubescape.io/pod-"${POD_NAME}" -n "${NAMESPACE}" --timeout=600s || error_exit "Application profile is not completed. Exiting."
+    kubectl wait --for=jsonpath="${STATUS_JSONPATH}"=completed "${APP_PROFILE_NAME}" -n "${NAMESPACE}" --timeout=600s || error_exit "Application profile is not completed. Exiting."
 
     sleep 10
 fi
@@ -279,7 +289,7 @@ NODE_NAME=$(kubectl get pod "${POD_NAME}" -n "${NAMESPACE}" -o jsonpath='{.spec.
 echo "✅ Web app pod '${POD_NAME}' is running on node: ${NODE_NAME} in namespace: ${NAMESPACE}."
 
 echo "🔍 Finding the node-agent pod running on the same node..."
-NODE_AGENT_POD=$(kubectl get pods -n "$KUBESCAPE_NAMESPACE" -l app=node-agent -o jsonpath="{.items[?(@.spec.nodeName=='${NODE_NAME}')].metadata.name}") || error_exit "Failed to find the node-agent pod. Exiting."
+NODE_AGENT_POD=$(kubectl get pods -n "${KUBESCAPE_NAMESPACE}" -l app=node-agent -o jsonpath="{.items[?(@.spec.nodeName=='${NODE_NAME}')].metadata.name}") || error_exit "Failed to find the node-agent pod. Exiting."
 echo "✅ Node-agent pod identified: ${NODE_AGENT_POD}."
 
 verify_detections() {
@@ -287,11 +297,11 @@ verify_detections() {
     
     local detections=("$@") # Accept detections as parameters
     echo "🔍 Fetching logs from node-agent pod..."
-    log_output=$(kubectl logs -n "$KUBESCAPE_NAMESPACE" "${NODE_AGENT_POD}") || error_exit "Failed to fetch logs from node-agent pod. Exiting."
+    log_output=$(kubectl logs -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}") || error_exit "Failed to fetch logs from node-agent pod. Exiting."
 
     echo "🔍 Verifying all detections in logs..."
     for detection in "${detections[@]}"; do
-        if echo "$log_output" | grep -iq "${detection}.*${POD_NAME}" 2>/dev/null; then
+        if echo "${log_output}" | grep -iq "${detection}.*${POD_NAME}" 2>/dev/null; then
             echo "✅ Detection '${detection}' found for pod '${POD_NAME}'."
         else
             echo "⚠️ Detection '${detection}' not found for pod '${POD_NAME}'."
@@ -331,13 +341,13 @@ case $MODE in
         while true; do
             echo
             read -p "👩‍🔬 Do you want to initiate a security incident? [y/n]: " choice
-            if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+            if [[ "${choice}" == "y" || "${choice}" == "Y" ]]; then
                 initiate_security_incidents
-                if [[ "$VERIFY_DETECTIONS" == true ]]; then
+                if [[ "${VERIFY_DETECTIONS}" == true ]]; then
                     sleep 5
                     verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
                 fi
-            elif [[ "$choice" == "n" || "$choice" == "N" ]]; then
+            elif [[ "${choice}" == "n" || "${choice}" == "N" ]]; then
                 echo "⏭️ Skipping further security incident initiation."
                 break
             else
@@ -352,37 +362,37 @@ case $MODE in
             read -p "$ " choice
             echo $choice
             checkpoint=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-            kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c "$choice" || echo "⚠️ Failed to execute the command. Exiting."
+            kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c "${choice}" || echo "⚠️ Failed to execute the command. Exiting."
             sleep 1.5
             echo "🔍 Checking for threat detections triggered by your command..."
             echo "============================================================="
             echo " Detection logged by the node-agent for the executed command"
             echo "============================================================="
-            node_agent_logs=$(kubectl logs --since-time "${checkpoint}" -n "$KUBESCAPE_NAMESPACE" "${NODE_AGENT_POD}" || error_exit "Failed to fetch logs from node-agent pod. Exiting." 2>/dev/null)
+            node_agent_logs=$(kubectl logs --since-time "${checkpoint}" -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}" || error_exit "Failed to fetch logs from node-agent pod. Exiting." 2>/dev/null)
             # Check if logs are empty
-            if [[ -z "$node_agent_logs" ]]; then
+            if [[ -z "${node_agent_logs}" ]]; then
                 echo "⚠️ No threats found for the executed command."
             else
-                echo "$node_agent_logs"
+                echo "${node_agent_logs}"
                 echo "✅ Command executed and detection logs retrieved."
             fi
 
             echo "========================================================="
             echo " Synchronizer activities logged for the executed command"
             echo "========================================================="
-            synchronizer_logs=$(kubectl logs --since-time "${checkpoint}" -n "$KUBESCAPE_NAMESPACE" "deployment.apps/synchronizer" || error_exit "Failed to fetch logs from node-agent pod. Exiting." 2>/dev/null)
+            synchronizer_logs=$(kubectl logs --since-time "${checkpoint}" -n "${KUBESCAPE_NAMESPACE}" "deployment.apps/synchronizer" || error_exit "Failed to fetch logs from node-agent pod. Exiting." 2>/dev/null)
             # Check if logs are empty
-            if [[ -z "$synchronizer_logs" ]]; then
+            if [[ -z "${synchronizer_logs}" ]]; then
                 echo "⚠️ No updates sent to Armo by the synchronizer for the executed command."
             else
-                echo "$synchronizer_logs"
+                echo "${synchronizer_logs}"
                 echo "✅ Command executed and synchronizer logs retrieved."
             fi
         done
         ;;
     "run_all_once" | *)
         initiate_security_incidents
-        if [[ "$VERIFY_DETECTIONS" == true ]]; then
+        if [[ "${VERIFY_DETECTIONS}" == true ]]; then
             sleep 5
             verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
         fi
