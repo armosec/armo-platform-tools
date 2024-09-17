@@ -27,29 +27,34 @@ Before running the **Attack Simulator**, ensure you have the following:
      ```bash
      ./attack-simulator.sh
      ```
-   - For additional options, including specifying namespaces and skipping pre-checks, use the help flag to see all available options:
+   - For additional options, including specifying namespaces, timeouts, and skipping pre-checks, use the help flag to see all available options:
      ```bash
      ./attack-simulator.sh --help
      ```
 
 3. **Options**:
-   - `-n, --namespace NAMESPACE`: Specify the namespace where the pod should be deployed (default: uses the current context namespace or 'default').
+   - `-n, --namespace NAMESPACE`: Specify the namespace where the pod should be deployed (default: current context namespace or 'default').
    - `--kubescape-namespace KUBESCAPE_NAMESPACE`: Specify the namespace where Kubescape components are deployed (default: 'kubescape').
    - `--mode MODE`: Set the execution mode. Available modes:
-     - `investigation`: Allows you to run any command and automatically prints local detections triggered by the command.
-     - `interactive`: The script will wait for user input to initiate security incidents.
-     - `run_all_once` (default): Automatically initiates security incidents once and exits.
+     - `interactive`: Wait for user input to initiate security incidents.
+     - `investigation`: Run any command and automatically print local detections triggered by the command.
+     - `run_all_once` (default): Automatically initiate security incidents once and exit.
    - `--verify-detections`: Run local verification for detections.
    - `--use-existing-pod POD_NAME`: Use an existing pod for the simulation instead of deploying a new one.
-   - `--learning-period LEARNING_PERIOD`: Define the duration for the learning period of the web app (default: 3 minutes). This option is applicable only when deploying a new pod.
+   - `--learning-period LEARNING_PERIOD`: Define the duration for the learning period of the web app (default: 3 minutes). Applicable only when deploying a new pod.
    - `--skip-pre-checks CHECK1,CHECK2,... | all`: Skip specific pre-checks before the script runs. Available options:
      - `kubectl_installed`: Skips checking if 'kubectl' is installed.
-     - `kubectl_version`: Skips checking if the 'kubectl' client version is compatible with the Kubernetes cluster. This check ensures the client and server versions are either the same or within one minor version. For example, a client version `1.21` would be compatible with a server version `1.21` or `1.22`.
+     - `kubectl_version`: Skips checking if the 'kubectl' client version is compatible with the Kubernetes cluster.
      - `jq_installed`: Skips checking if 'jq' is installed.
      - `kubescape_components`: Skips checking if Kubescape components are installed and ready.
      - `runtime_detection`: Skips checking if runtime detection is enabled in Kubescape.
      - `namespace_existence`: Skips checking if the specified namespaces exist.
-     - `all`: Skips all the pre-checks mentioned above.
+     - `all`: Skips all of the pre-checks mentioned above.
+   - `--kubescape-readiness-timeout TIMEOUT`: Set the timeout for checking Kubescape components readiness (default: 10 seconds).
+   - `--app-creation-timeout TIMEOUT`: Set the timeout for application pod creation (default: 60 seconds).
+   - `--app-profile-creation-timeout TIMEOUT`: Set the timeout for application profile creation (default: 10 seconds).
+   - `--app-profile-readiness-timeout TIMEOUT`: Set the timeout for application profile readiness (default: 300 seconds).
+   - `--app-profile-completion-timeout TIMEOUT`: Set the timeout for application profile completion (default: 600 seconds).
    - `-h, --help`: Display detailed usage information and exit.
 
 4. **Cleanup**:
@@ -57,31 +62,36 @@ Before running the **Attack Simulator**, ensure you have the following:
 
 ## Extended Usage Examples
 Here are some examples of how to use the script with different flags and modes:
-  - **Run in `investigation` mode**:
-    In this mode, you can enter any command, and the script will automatically display any threat detections triggered by the command.
-    ```bash
-    ./attack-simulator.sh --mode investigation
-    ```
-  - **Run in `interactive` mode**:
-    This will prompt you for confirmation before security incidents are initiated.
-    ```bash
-    ./attack-simulator.sh --mode interactive
-    ```
-  - **Skipping Specific Pre-checks**:
-    This example skips checking whether `kubectl` and `jq` are installed and bypasses the `runtime_detection` enablement check.
-    ```bash
-    ./attack-simulator.sh --skip-pre-checks kubectl_installed,jq_installed,runtime_detection
-    ```
-  - **Verifying Detections Locally**:
-    Use this command to verify local detections triggered by the incidents without re-running the simulation.
-    ```bash
-    ./attack-simulator.sh --verify-detections
-    ```
-  - **Using an Existing Pod (will run faster)**:
-    If you want to reuse an existing pod (my-existing-pod) for the simulation instead of deploying a new one:
-    ```bash
-    ./attack-simulator.sh --use-existing-pod my-existing-pod
-    ```
+
+- **Run in `investigation` mode**:
+  In this mode, you can enter any command, and the script will automatically display any threat detections triggered by the command.
+  ```bash
+  ./attack-simulator.sh --mode investigation
+  ```
+
+- **Run in `interactive` mode**:
+  This will prompt you for confirmation before security incidents are initiated.
+  ```bash
+  ./attack-simulator.sh --mode interactive
+  ```
+
+- **Skipping Specific Pre-checks**:
+  This example skips checking whether `kubectl` and `jq` are installed and bypasses the `runtime_detection` enablement check.
+  ```bash
+  ./attack-simulator.sh --skip-pre-checks kubectl_installed,jq_installed,runtime_detection
+  ```
+
+- **Verifying Detections Locally**:
+  Use this command to verify local detections triggered by the incidents without re-running the simulation.
+  ```bash
+  ./attack-simulator.sh --verify-detections
+  ```
+
+- **Using an Existing Pod (will run faster)**:
+  If you want to reuse an existing pod (my-existing-pod) for the simulation instead of deploying a new one:
+  ```bash
+  ./attack-simulator.sh --use-existing-pod my-existing-pod
+  ```
 
 ## How It Works
 

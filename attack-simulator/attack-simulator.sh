@@ -14,20 +14,27 @@ VERIFY_DETECTIONS=false
 EXISTING_POD_NAME=""
 LEARNING_PERIOD="3m"
 
+KUBESCAPE_READINESS_TIMEOUT=10s
+APP_CREATION_TIMEOUT=60s
+APP_PROFILE_CREATION_TIMEOUT=10s
+APP_PROFILE_READINESS_TIMEOUT=300s
+APP_PROFILE_COMPLETION_TIMEOUT=600s
+
 #######################
 # Function Definitions
 #######################
 
 cleanup() {
     if [[ -z "${EXISTING_POD_NAME}" ]]; then
-        # Prompt to delete the ${POD_NAME} pod
+        # Prompt to delete the deployed pod
         read -p "🗑️ Would you like to delete the pod '${POD_NAME}'? [Y/n] " -r
         REPLY=${REPLY:-Y}
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            echo "🧹 Cleaning up the pod: ${POD_NAME} in namespace: ${NAMESPACE}..."
-            kubectl delete pod "${POD_NAME}" -n "${NAMESPACE}"
+            echo "🧹 Cleaning up the pod: '${POD_NAME}' in namespace: '${NAMESPACE}'..."
+            kubectl delete pod "${POD_NAME}" -n "${NAMESPACE}" &> /dev/null || echo "⚠️ Failed to delete the pod '${POD_NAME}'."
+            echo "✅ The pod '${POD_NAME}' was deleted successfully."
         else
-            echo "⚠️ The pod '${POD_NAME}' was not deleted."
+            echo "✅ The pod '${POD_NAME}' was not deleted."
         fi
     else
         echo "⏭️ Skipping pod deletion since an existing pod '${EXISTING_POD_NAME}' was used."
@@ -41,7 +48,7 @@ error_exit() {
 }
 
 kubectl_version_compatibility_check() {
-    echo "🔍 Verifying compatibility between the kubectl CLI version and the Kubernetes cluster..."
+    echo "🔍 Verifying compatibility between the kubectl CLI and Kubernetes cluster versions..."
     # Get client and server versions
     versions=$(kubectl version --output json)
 
@@ -69,20 +76,28 @@ check_kubescape_components() {
         kollector
     )
     for component in "${components[@]}"; do
-        echo "Checking readiness of $component..."
-        kubectl wait -n "${KUBESCAPE_NAMESPACE}" --for=condition=ready pod -l app.kubernetes.io/component="${component}" --timeout=600s || error_exit "$component is not ready. Exiting."
+        kubectl wait -n "${KUBESCAPE_NAMESPACE}" --for=condition=ready pod -l app.kubernetes.io/component="${component}" --timeout="${KUBESCAPE_READINESS_TIMEOUT}" > /dev/null || error_exit "$component is not ready. Exiting."
     done
     echo "✅ All Kubescape's components are ready."
 }
 
 # Function to print usage
 print_usage() {
-    echo "Usage: $0 [-n NAMESPACE] [--kubescape-namespace] [--mode MODE] [--skip-pre-checks CHECK1,CHECK2,... | all] [--verify-detections] [--use-existing-pod POD_NAME | --learning-period LEARNING_PERIOD] [-h]"
+    echo "Usage: $0 [-n NAMESPACE] [--kubescape-namespace KUBESCAPE_NAMESPACE] [--mode MODE]"
+    echo "          [--skip-pre-checks CHECK1,CHECK2,... | all] [--verify-detections]"
+    echo "          [--use-existing-pod POD_NAME | --learning-period LEARNING_PERIOD]"
+    echo "          [--kubescape-readiness-timeout TIMEOUT]"
+    echo "          [--app-creation-timeout TIMEOUT]"
+    echo "          [--app-profile-creation-timeout TIMEOUT]"
+    echo "          [--app-profile-readiness-timeout TIMEOUT]"
+    echo "          [--app-profile-completion-timeout TIMEOUT]"
+    echo "          [-h]"
     echo
     echo "Options:"
     echo "  -n, --namespace NAMESPACE          Specify the namespace for deploying a new pod or locating an existing pod (default: current context namespace or 'default')."
-    echo "  --kubescape-namespace              KUBESCAPE_NAMESPACE  Specify the namespace where Kubescape components are deployed (default: 'kubescape')."
-    echo "  --mode                             Set the execution mode. Available modes:"
+    echo "  --kubescape-namespace KUBESCAPE_NAMESPACE"
+    echo "                                     Specify the namespace where Kubescape components are deployed (default: 'kubescape')."
+    echo "  --mode MODE                        Set the execution mode. Available modes:"
     echo "                                      - 'interactive': Wait for user input to initiate security incidents."
     echo "                                      - 'investigation': Allows you to run any command and automatically prints local detections triggered by the command."
     echo "                                      - 'run_all_once' (default): Automatically initiates security incidents once and exits."
@@ -97,6 +112,15 @@ print_usage() {
     echo "                                      - 'runtime_detection': Skips checking if runtime detection is enabled in Kubescape."
     echo "                                      - 'namespace_existence': Skips checking if the specified namespaces exist."
     echo "                                      - 'all': Skips all of the above pre-checks."
+    echo "  --kubescape-readiness-timeout TIMEOUT"
+    echo "                                     Set the timeout for checking Kubescape components readiness (default: 10s)."
+    echo "  --app-creation-timeout TIMEOUT     Set the timeout for application pod creation (default: 60s)."
+    echo "  --app-profile-creation-timeout TIMEOUT"
+    echo "                                     Set the timeout for application profile creation (default: 10s)."
+    echo "  --app-profile-readiness-timeout TIMEOUT"
+    echo "                                     Set the timeout for application profile readiness (default: 300s)."
+    echo "  --app-profile-completion-timeout TIMEOUT"
+    echo "                                     Set the timeout for application profile completion (default: 600s)."
     echo "  -h, --help                         Display this help message and exit."
 }
 
@@ -133,6 +157,26 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         --learning-period)
             LEARNING_PERIOD="$2"
+            shift 2
+            ;;
+        --kubescape-readiness-timeout)
+            KUBESCAPE_READINESS_TIMEOUT="$2"
+            shift 2
+            ;;
+        --app-creation-timeout)
+            APP_CREATION_TIMEOUT="$2"
+            shift 2
+            ;;
+        --app-profile-creation-timeout)
+            APP_PROFILE_CREATION_TIMEOUT="$2"
+            shift 2
+            ;;
+        --app-profile-readiness-timeout)
+            APP_PROFILE_READINESS_TIMEOUT="$2"
+            shift 2
+            ;;
+        --app-profile-completion-timeout)
+            APP_PROFILE_COMPLETION_TIMEOUT="$2"
             shift 2
             ;;
         -h|--help)
@@ -183,19 +227,19 @@ skip_pre_check() {
 ######################################
 
 if ! skip_pre_check "kubectl_installed"; then
-    echo "🔍 Verifying that kubectl is installed..."
+    echo "🔍 Verifying that 'kubectl' is installed..."
     command -v kubectl &> /dev/null || error_exit "kubectl is not installed. Please install kubectl to continue. Exiting."
-    echo "✅ kubectl is installed."
+    echo "✅ 'kubectl' is installed."
+fi
+
+if ! skip_pre_check "jq_installed"; then
+    echo "🔍 Verifying that 'jq' is installed..."
+    command -v jq &> /dev/null || error_exit "jq is not installed. Please install jq to continue. Exiting."
+    echo "✅ 'jq' is installed."
 fi
 
 if ! skip_pre_check "kubectl_version"; then
     kubectl_version_compatibility_check
-fi
-
-if ! skip_pre_check "jq_installed"; then
-    echo "🔍 Verifying that jq is installed..."
-    command -v jq &> /dev/null || error_exit "jq is not installed. Please install jq to continue. Exiting."
-    echo "✅ jq is installed."
 fi
 
 if ! skip_pre_check "kubescape_components"; then
@@ -251,32 +295,40 @@ else
     # Trap any EXIT signal and call the cleanup function
     trap cleanup EXIT
 
-    echo "🚀 Deploying the web app with a learning period of ⏰ ${LEARNING_PERIOD}: ${POD_NAME} in namespace: ${NAMESPACE}..."
-    sed -e "s/\${POD_NAME}/${POD_NAME}/g" -e "s/\${LEARNING_PERIOD}/${LEARNING_PERIOD}/g" ping-app.yaml | kubectl apply -f - -n "${NAMESPACE}" || error_exit "Failed to apply 'ping-app.yaml'. Exiting."
-    echo "⏳ Waiting for the web app pod to be ready in namespace: ${NAMESPACE}..."
-    kubectl wait --for=condition=ready pod -l app="${POD_NAME}" -n "${NAMESPACE}" --timeout=600s || error_exit "${POD_NAME} pod is not ready. Exiting."
+    echo "🚀 Deploying the pod: '${POD_NAME}' in namespace: '${NAMESPACE}' with a learning period of ⏰ '${LEARNING_PERIOD}'..."
+    sed -e "s/\${POD_NAME}/${POD_NAME}/g" -e "s/\${LEARNING_PERIOD}/${LEARNING_PERIOD}/g" ping-app.yaml | kubectl apply -f - -n "${NAMESPACE}" &> /dev/null || error_exit "Failed to apply 'ping-app.yaml'. Exiting."
+    echo "⏳ Waiting for the pod to be ready..."
+    kubectl wait --for=condition=ready pod -l app="${POD_NAME}" -n "${NAMESPACE}" --timeout="${APP_CREATION_TIMEOUT}" &> /dev/null || error_exit "'${POD_NAME}' pod is not ready. Exiting."
 
     ###################################################
     # Wait for the Application Profile to be Completed
     ###################################################
 
-    retries=10
-    echo "⏳ Waiting for the application profile to be created..."
-        until output=$(kubectl get "${APP_PROFILE_NAME}" -n "${NAMESPACE}" 2>/dev/null) || ((--retries == 0)); do
+    apc_timeout="${APP_PROFILE_CREATION_TIMEOUT%s}"
+    echo "⏳ Waiting for application profile '${APP_PROFILE_NAME}' in namespace '${NAMESPACE}' to be created..."
+
+    while ! kubectl get "${APP_PROFILE_NAME}" -n "${NAMESPACE}" &> /dev/null && (( apc_timeout-- )); do
         sleep 1
     done
-    [[ $retries -gt 0 ]] && echo "✅ The application profile is created." || error_exit "The application profile was not created after max retries. Exiting"
-    
-    echo "⏳ Waiting for the application profile to initialize or be ready..."
-    kubectl wait --for=jsonpath="${STATUS_JSONPATH}"=initializing "${APP_PROFILE_NAME}" -n "${NAMESPACE}" --timeout=5s || \
-    kubectl wait --for=jsonpath="${STATUS_JSONPATH}"=ready "${APP_PROFILE_NAME}" -n "${NAMESPACE}" --timeout=300s || \
-    error_exit "Application profile is not initializing or ready. Exiting."
+
+    (( apc_timeout >= 0 )) && echo "✅ Application profile created successfully!" || error_exit "Timed out after ${APP_PROFILE_CREATION_TIMEOUT} waiting for application profile creation"
+
+    echo "⏳ Waiting for the application profile to be ready..."
+    kubectl wait --for=jsonpath="${STATUS_JSONPATH}"=ready "${APP_PROFILE_NAME}" -n "${NAMESPACE}" --timeout="${APP_PROFILE_READINESS_TIMEOUT}" &> /dev/null || \
+    error_exit "Application profile is not ready after '${APP_PROFILE_READINESS_TIMEOUT}' timeout. Exiting."
 
     echo "🛠️ Generating activities to populate the application profile..."
-    kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c 'cat && curl --help > /dev/null 2>&1 && ping -c 1 1.1.1.1 > /dev/null 2>&1 && ln -sf /dev/null /tmp/null_link' || echo "⚠️ Failed to generate at least one of the pre-run activities."
+    kubectl exec -n "${NAMESPACE}" -t "${POD_NAME}" -- sh -c '
+    {
+        cat &&
+        curl --help &&
+        ping -c 1 1.1.1.1 &&
+        ln -sf /dev/null /tmp/null_link
+    } > /dev/null 2>&1
+    ' || echo "⚠️ One or more pre-run activities failed."
 
     echo "⏳ Waiting for the application profile to be completed..."
-    kubectl wait --for=jsonpath="${STATUS_JSONPATH}"=completed "${APP_PROFILE_NAME}" -n "${NAMESPACE}" --timeout=600s || error_exit "Application profile is not completed. Exiting."
+    kubectl wait --for=jsonpath="${STATUS_JSONPATH}"=completed "${APP_PROFILE_NAME}" -n "${NAMESPACE}" --timeout="${APP_PROFILE_COMPLETION_TIMEOUT}" &> /dev/null || error_exit "Application profile is not completed after '${APP_PROFILE_COMPLETION_TIMEOUT}' timeout. Exiting."
 
     sleep 10
 fi
@@ -286,11 +338,11 @@ fi
 ############################
 
 NODE_NAME=$(kubectl get pod "${POD_NAME}" -n "${NAMESPACE}" -o jsonpath='{.spec.nodeName}') || error_exit "Failed to retrieve the node name. Exiting."
-echo "✅ Web app pod '${POD_NAME}' is running on node: ${NODE_NAME} in namespace: ${NAMESPACE}."
+echo "✅ Pod '${POD_NAME}' is running on node: '${NODE_NAME}' in namespace: '${NAMESPACE}'."
 
 echo "🔍 Finding the node-agent pod running on the same node..."
 NODE_AGENT_POD=$(kubectl get pods -n "${KUBESCAPE_NAMESPACE}" -l app=node-agent -o jsonpath="{.items[?(@.spec.nodeName=='${NODE_NAME}')].metadata.name}") || error_exit "Failed to find the node-agent pod. Exiting."
-echo "✅ Node-agent pod identified: ${NODE_AGENT_POD}."
+echo "✅ Node-agent pod identified: '${NODE_AGENT_POD}'."
 
 verify_detections() {
     echo "🔍 Running detection verification..."
