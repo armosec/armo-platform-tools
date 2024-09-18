@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: ${POD_NAME}
+  name: ${APP_NAME}
   labels:
-    app: ${POD_NAME}
+    app: ${APP_NAME}
     kubescape.io/max-sniffing-time: ${LEARNING_PERIOD}
 spec:
   containers:
-  - name: ${POD_NAME}
+  - name: ${APP_NAME}
     image: docker.io/amitschendel/ping-app:latest
     imagePullPolicy: Always
     ports:
@@ -16,12 +16,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: ${POD_NAME}
+  name: ${APP_NAME}
   labels:
-    app: ${POD_NAME}
+    app: ${APP_NAME}
 spec:
   selector:
-    app: ${POD_NAME}
+    app: ${APP_NAME}
   ports:
   - protocol: TCP
     port: 80
@@ -30,7 +30,7 @@ spec:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: ${POD_NAME}-role
+  name: ${APP_NAME}-role
 rules:
 - apiGroups: [""]
   resources: ["*"]
@@ -39,11 +39,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: ${POD_NAME}-role-binding
+  name: ${APP_NAME}-role-binding
 subjects:
 - kind: ServiceAccount
   name: "default"
 roleRef:
   kind: Role
-  name: ${POD_NAME}-role
+  name: ${APP_NAME}-role
   apiGroup: rbac.authorization.k8s.io
