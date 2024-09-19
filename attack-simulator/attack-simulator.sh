@@ -14,8 +14,12 @@ VERIFY_DETECTIONS=false
 EXISTING_POD_NAME=""
 LEARNING_PERIOD="3m"
 APP_YAML_PATH="ping-app.yaml"
+
 PRE_RUN_SCRIPT=""
 ATTACK_SCRIPT=""
+PRE_RUN_PID=""
+ATTACK_PID=""
+
 
 KUBESCAPE_READINESS_TIMEOUT=10s
 APP_CREATION_TIMEOUT=60s
@@ -29,6 +33,7 @@ VERIFY_DETECTIONS_DELAY=10s
 #######################
 
 cleanup() {
+    # Cleanup the deployed application if necessary
     if [[ -z "${EXISTING_POD_NAME}" ]]; then
         # Prompt to delete the deployed application
         read -p "🗑️ Would you like to delete the deployed application? [Y/n] " -r
@@ -43,7 +48,37 @@ cleanup() {
     else
         echo "⏭️ Skipping application deletion since an existing pod '${EXISTING_POD_NAME}' was used."
     fi
+
+    # Prompt to stop background processes related to the pre-run or attack scripts
+    if [[ -n "${PRE_RUN_PID}" || -n "${ATTACK_PID}" ]]; then
+        read -p "🧹 Would you like to stop the running processes from the pre-run or attack scripts? [Y/n] " -r
+        REPLY=${REPLY:-Y}
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            if [[ -n "${PRE_RUN_PID}" ]]; then
+                echo "🧹 Stopping pre-run script process with PID: ${PRE_RUN_PID}..."
+                kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- kill -9 "${PRE_RUN_PID}" &> /dev/null || echo "⚠️ Failed to stop pre-run script process."
+            fi
+
+            if [[ -n "${ATTACK_PID}" ]]; then
+                echo "🧹 Stopping attack script process with PID: ${ATTACK_PID}..."
+                kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- kill -9 "${ATTACK_PID}" &> /dev/null || echo "⚠️ Failed to stop attack script process."
+            fi
+            echo "✅ Background processes were stopped successfully."
+        else
+            echo "✅ Background processes were not stopped."
+        fi
+    fi
+
+    # Cleanup pre-run script and attack script, and logs
+    if [[ -n "${PRE_RUN_SCRIPT}" || -n "${ATTACK_SCRIPT}" ]]; then
+        echo "🧹 Cleaning up the pre-run script, attack script, and logs from the pod '${APP_POD_NAME}'..."
+        kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- rm -f /tmp/pre-run-script.sh /tmp/attack-script.sh /tmp/attack-script.log &> /dev/null || echo "⚠️ Failed to remove pre-run or attack script or logs."
+        echo "✅ Pre-run script, attack script, and logs removed successfully."
+    fi
+
+    # Reset trap and exit
     trap - EXIT
+    exit 0
 }
 
 error_exit() {
@@ -388,8 +423,8 @@ else
     if [[ -n "${PRE_RUN_SCRIPT}" ]]; then
         echo "🛠️ Copying pre-run script '${PRE_RUN_SCRIPT}' to the pod and executing it..."
         kubectl cp "${PRE_RUN_SCRIPT}" "${NAMESPACE}/${APP_POD_NAME}:/tmp/pre-run-script.sh" || error_exit "Failed to copy pre-run script to the pod."
-        kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/pre-run-script.sh && nohup /tmp/pre-run-script.sh > /dev/null 2>&1 &' && \
-        echo "✅ Pre-run script executed successfully." || error_exit "Failed to execute pre-run script on the pod."
+        PRE_RUN_PID=$(kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/pre-run-script.sh && nohup /tmp/pre-run-script.sh > /dev/null 2>&1 & echo $!') || error_exit "Failed to execute pre-run script on the pod."
+        echo "✅ Pre-run script executed successfully with PID: ${PRE_RUN_PID}."
     else
         echo "🛠️ Generating default activities to populate the application profile..."
         kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c '
@@ -473,7 +508,9 @@ case $MODE in
                     echo "🛠️ Copying attack script '${ATTACK_SCRIPT}' to the pod and executing it..."
                     CHECKPOINT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
                     kubectl cp "${ATTACK_SCRIPT}" "${NAMESPACE}/${APP_POD_NAME}:/tmp/attack-script.sh" || error_exit "Failed to copy attack script to the pod."
-                    kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/attack-script.sh && nohup /tmp/attack-script.sh > /dev/null 2>&1 &' && \
+                    ATTACK_PID=$(kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/attack-script.sh && nohup /tmp/attack-script.sh > /tmp/attack-script.log 2>&1 & echo $!') && \
+                    echo "✅ Attack script executed successfully with PID: ${ATTACK_PID}." || error_exit "Failed to execute attack script on the pod."
+                    kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- tail -f /tmp/attack-script.log &
                     echo "✅ Attack script executed successfully." || error_exit "Failed to execute attack script on the pod."
                     if [[ "${VERIFY_DETECTIONS}" == true ]]; then
                         echo "📝 Logging new events after checkpoint '${CHECKPOINT}' and filtering by app name '${APP_NAME}'..."
@@ -534,8 +571,9 @@ case $MODE in
             echo "🛠️ Copying attack script '${ATTACK_SCRIPT}' to the pod and executing it..."
             CHECKPOINT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
             kubectl cp "${ATTACK_SCRIPT}" "${NAMESPACE}/${APP_POD_NAME}:/tmp/attack-script.sh" || error_exit "Failed to copy attack script to the pod."
-            kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/attack-script.sh && nohup /tmp/attack-script.sh > /dev/null 2>&1 &' && \
-            echo "✅ Attack script executed successfully." || error_exit "Failed to execute attack script on the pod."
+            ATTACK_PID=$(kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/attack-script.sh && nohup /tmp/attack-script.sh > /tmp/attack-script.log 2>&1 & echo $!') && \
+            echo "✅ Attack script executed successfully with PID: ${ATTACK_PID}." || error_exit "Failed to execute attack script on the pod."
+            kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- tail -f /tmp/attack-script.log &
             if [[ "${VERIFY_DETECTIONS}" == true ]]; then
                 echo "📝 Logging new events after checkpoint '${CHECKPOINT}' and filtering by app name '${APP_NAME}'..."
                 kubectl logs --since-time "${CHECKPOINT}" -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}" -f | grep "${APP_NAME}" || error_exit "Failed to fetch logs from node-agent pod. Exiting."
