@@ -475,8 +475,10 @@ case $MODE in
                     kubectl cp "${ATTACK_SCRIPT}" "${NAMESPACE}/${APP_POD_NAME}:/tmp/attack-script.sh" || error_exit "Failed to copy attack script to the pod."
                     kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/attack-script.sh && nohup /tmp/attack-script.sh > /dev/null 2>&1 &' && \
                     echo "✅ Attack script executed successfully." || error_exit "Failed to execute attack script on the pod."
-                    echo "📝 Logging new events after checkpoint '${CHECKPOINT}' and filtering by app name '${APP_NAME}'..."
-                    kubectl logs --since-time "${CHECKPOINT}" -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}" -f | grep "${APP_NAME}"
+                    if [[ "${VERIFY_DETECTIONS}" == true ]]; then
+                        echo "📝 Logging new events after checkpoint '${CHECKPOINT}' and filtering by app name '${APP_NAME}'..."
+                        kubectl logs --since-time "${CHECKPOINT}" -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}" -f | grep "${APP_NAME}" || error_exit "Failed to fetch logs from node-agent pod. Exiting."
+                    fi
                 else
                     initiate_security_incidents
                     if [[ "${VERIFY_DETECTIONS}" == true ]]; then
@@ -534,8 +536,10 @@ case $MODE in
             kubectl cp "${ATTACK_SCRIPT}" "${NAMESPACE}/${APP_POD_NAME}:/tmp/attack-script.sh" || error_exit "Failed to copy attack script to the pod."
             kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/attack-script.sh && nohup /tmp/attack-script.sh > /dev/null 2>&1 &' && \
             echo "✅ Attack script executed successfully." || error_exit "Failed to execute attack script on the pod."
-            echo "📝 Logging new events after checkpoint '${CHECKPOINT}' and filtering by app name '${APP_NAME}'..."
-            kubectl logs --since-time "${CHECKPOINT}" -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}" -f | grep "${APP_NAME}"
+            if [[ "${VERIFY_DETECTIONS}" == true ]]; then
+                echo "📝 Logging new events after checkpoint '${CHECKPOINT}' and filtering by app name '${APP_NAME}'..."
+                kubectl logs --since-time "${CHECKPOINT}" -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}" -f | grep "${APP_NAME}" || error_exit "Failed to fetch logs from node-agent pod. Exiting."
+            fi
         else
             initiate_security_incidents
             if [[ "${VERIFY_DETECTIONS}" == true ]]; then
