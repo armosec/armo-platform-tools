@@ -14,6 +14,8 @@ VERIFY_DETECTIONS=false
 EXISTING_POD_NAME=""
 LEARNING_PERIOD="3m"
 APP_YAML_PATH="ping-app.yaml"
+PRE_RUN_SCRIPT=""
+ATTACK_SCRIPT=""
 
 KUBESCAPE_READINESS_TIMEOUT=10s
 APP_CREATION_TIMEOUT=60s
@@ -96,6 +98,8 @@ print_usage() {
     echo "  --verify-detections                     Run local verification for detections."
     echo "  --use-existing-pod POD_NAME             Use an existing pod instead of deploying a new one."
     echo "  --app-yaml-path PATH                    Specify the path to the application YAML file to deploy. Default is 'ping-app.yaml'."
+    echo "  --pre-run-script PATH                   Specify a shell script to run during the pre-run activities."
+    echo "  --attack-script PATH                    Specify a shell script to run instead of the default attack activities."
     echo
     echo "Additional Options:"
     echo "  --kubescape-namespace KUBESCAPE_NAMESPACE Specify the namespace where Kubescape components are deployed (default: 'kubescape')."
@@ -147,6 +151,14 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         --app-yaml-path)
             APP_YAML_PATH="$2"
+            shift 2
+            ;;
+        --pre-run-script)
+            PRE_RUN_SCRIPT="$2"
+            shift 2
+            ;;
+        --attack-script)
+            ATTACK_SCRIPT="$2"
             shift 2
             ;;
         --kubescape-readiness-timeout)
@@ -204,7 +216,7 @@ check_time_format "APP_PROFILE_COMPLETION_TIMEOUT" "s"
 check_time_format "LEARNING_PERIOD" "mh"
 check_time_format "VERIFY_DETECTIONS_DELAY" "s"
 
-# validate that the simulation-app.yaml file exists
+# Validate that the simulation-app.yaml file exists
 if [[ ! -f "${APP_YAML_PATH}" ]]; then
     error_exit "The provided application YAML file '${APP_YAML_PATH}' does not exist."
 fi
@@ -212,6 +224,20 @@ fi
 # Check that the file contains both placeholders \${APP_NAME} and \${LEARNING_PERIOD}
 if ! grep -q '\${APP_NAME}' "${APP_YAML_PATH}" || ! grep -q '\${LEARNING_PERIOD}' "${APP_YAML_PATH}"; then
     error_exit "The provided application YAML file '${APP_YAML_PATH}' must contain both placeholders '\${APP_NAME}' and '\${LEARNING_PERIOD}'."
+fi
+
+# Check if the pre-run script exists
+if [[ -n "${PRE_RUN_SCRIPT}" ]]; then
+    if [[ ! -f "${PRE_RUN_SCRIPT}" ]]; then
+        error_exit "The provided pre-run script '${PRE_RUN_SCRIPT}' does not exist."
+    fi
+fi
+
+# Check if the attack script exists
+if [[ -n "${ATTACK_SCRIPT}" ]]; then
+    if [[ ! -f "${ATTACK_SCRIPT}" ]]; then
+        error_exit "The provided attack script '${ATTACK_SCRIPT}' does not exist."
+    fi
 fi
 
 # Set Application Profile's default values
@@ -358,16 +384,23 @@ else
     kubectl wait --for=jsonpath="${STATUS_JSONPATH}"=ready "${APP_PROFILE_API}" "${APP_PROFILE_NAME}" -n "${NAMESPACE}" --timeout="${APP_PROFILE_READINESS_TIMEOUT}" &> /dev/null || \
     error_exit "Application profile is not ready after '${APP_PROFILE_READINESS_TIMEOUT}' timeout. Exiting."
 
-    echo "🛠️ Generating activities to populate the application profile..."
-    kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c '
-    {
-        cat &&
-        curl --help &&
-        ping -c 1 1.1.1.1 &&
-        ln -sf /dev/null /tmp/null_link
-    } > /dev/null 2>&1' > /dev/null 2>&1 && echo "✅ Pre-run activities completed successfully." || \
-    echo "⚠️ One or more pre-run activities failed."
-
+    # Generate activities to populate the application profile
+    if [[ -n "${PRE_RUN_SCRIPT}" ]]; then
+        echo "🛠️ Copying pre-run script '${PRE_RUN_SCRIPT}' to the pod and executing it..."
+        kubectl cp "${PRE_RUN_SCRIPT}" "${NAMESPACE}/${APP_POD_NAME}:/tmp/pre-run-script.sh" || error_exit "Failed to copy pre-run script to the pod."
+        kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/pre-run-script.sh && nohup /tmp/pre-run-script.sh > /dev/null 2>&1 &' && \
+        echo "✅ Pre-run script executed successfully." || error_exit "Failed to execute pre-run script on the pod."
+    else
+        echo "🛠️ Generating default activities to populate the application profile..."
+        kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c '
+        {
+            cat &&
+            curl --help &&
+            ping -c 1 1.1.1.1 &&
+            ln -sf /dev/null /tmp/null_link
+        } > /dev/null 2>&1' > /dev/null 2>&1 && echo "✅ Pre-run activities completed successfully." || \
+        echo "⚠️ One or more pre-run activities failed."
+    fi
 
     echo "⏳ Waiting for the application profile to be completed..."
     kubectl wait --for=jsonpath="${STATUS_JSONPATH}"=completed "${APP_PROFILE_API}" "${APP_PROFILE_NAME}" -n "${NAMESPACE}" --timeout="${APP_PROFILE_COMPLETION_TIMEOUT}" &> /dev/null || error_exit "Application profile is not completed after '${APP_PROFILE_COMPLETION_TIMEOUT}' timeout. Exiting."
@@ -388,7 +421,7 @@ echo "✅ Node-agent pod identified: '${NODE_AGENT_POD}'."
 
 verify_detections() {
     echo "🔍 Running detection verification..."
-    
+
     local detections=("$@") # Accept detections as parameters
     echo "🔍 Fetching logs from node-agent pod..."
     log_output=$(kubectl logs -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}") || error_exit "Failed to fetch logs from node-agent pod. Exiting."
@@ -436,10 +469,20 @@ case $MODE in
             echo
             read -p "👩‍🔬 Do you want to initiate a security incident? [y/n]: " choice
             if [[ "${choice}" == "y" || "${choice}" == "Y" ]]; then
-                initiate_security_incidents
-                if [[ "${VERIFY_DETECTIONS}" == true ]]; then
-                    sleep ${VERIFY_DETECTIONS_DELAY%s}
-                    verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
+                if [[ -n "${ATTACK_SCRIPT}" ]]; then
+                    echo "🛠️ Copying attack script '${ATTACK_SCRIPT}' to the pod and executing it..."
+                    CHECKPOINT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+                    kubectl cp "${ATTACK_SCRIPT}" "${NAMESPACE}/${APP_POD_NAME}:/tmp/attack-script.sh" || error_exit "Failed to copy attack script to the pod."
+                    kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/attack-script.sh && nohup /tmp/attack-script.sh > /dev/null 2>&1 &' && \
+                    echo "✅ Attack script executed successfully." || error_exit "Failed to execute attack script on the pod."
+                    echo "📝 Logging new events after checkpoint '${CHECKPOINT}' and filtering by app name '${APP_NAME}'..."
+                    kubectl logs --since-time "${CHECKPOINT}" -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}" -f | grep "${APP_NAME}"
+                else
+                    initiate_security_incidents
+                    if [[ "${VERIFY_DETECTIONS}" == true ]]; then
+                        sleep ${VERIFY_DETECTIONS_DELAY%s}
+                        verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
+                    fi
                 fi
             elif [[ "${choice}" == "n" || "${choice}" == "N" ]]; then
                 echo "⏭️ Skipping further security incident initiation."
@@ -485,12 +528,22 @@ case $MODE in
         done
         ;;
     "run_all_once" | *)
-        initiate_security_incidents
-        if [[ "${VERIFY_DETECTIONS}" == true ]]; then
-            sleep ${VERIFY_DETECTIONS_DELAY%s}
-            verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
+        if [[ -n "${ATTACK_SCRIPT}" ]]; then
+            echo "🛠️ Copying attack script '${ATTACK_SCRIPT}' to the pod and executing it..."
+            CHECKPOINT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            kubectl cp "${ATTACK_SCRIPT}" "${NAMESPACE}/${APP_POD_NAME}:/tmp/attack-script.sh" || error_exit "Failed to copy attack script to the pod."
+            kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/attack-script.sh && nohup /tmp/attack-script.sh > /dev/null 2>&1 &' && \
+            echo "✅ Attack script executed successfully." || error_exit "Failed to execute attack script on the pod."
+            echo "📝 Logging new events after checkpoint '${CHECKPOINT}' and filtering by app name '${APP_NAME}'..."
+            kubectl logs --since-time "${CHECKPOINT}" -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}" -f | grep "${APP_NAME}"
+        else
+            initiate_security_incidents
+            if [[ "${VERIFY_DETECTIONS}" == true ]]; then
+                sleep ${VERIFY_DETECTIONS_DELAY%s}
+                verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
+            fi
+            echo "✅ Exiting after one-time incident initiation."
         fi
-        echo "✅ Exiting after one-time incident initiation."
         ;;
 esac
 

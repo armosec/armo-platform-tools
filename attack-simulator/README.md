@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **Attack Simulator** is a script designed to simulate various security incidents within a Kubernetes environment, specifically to test and validate runtime detection capabilities using Kubescape. This script automates the deployment of a dedicated application, checks the readiness of necessary components, initiates a series of predefined security incidents, and verifies if these incidents are detected correctly by Kubescape.
+The **Attack Simulator** is a script designed to simulate various security incidents within a Kubernetes environment, specifically to test and validate runtime detection capabilities using Kubescape. This script automates the deployment of a dedicated application, checks the readiness of necessary components, initiates a series of predefined security incidents (or custom scripts provided by the user), and verifies if these incidents are detected correctly by Kubescape.
 
 ## Prerequisites
 
@@ -12,6 +12,7 @@ Before running the **Attack Simulator**, ensure you have the following:
 - The `kubectl` command-line tool set up and configured to interact with your Kubernetes cluster.
 - `jq` installed on your system for JSON parsing.
 - The default application YAML file (`ping-app.yaml`) or your own application YAML file if you wish to deploy a custom application.
+- **Optional**: Custom shell scripts for pre-run activities and/or attack activities if you wish to use them.
 
 ## Usage Instructions
 
@@ -45,6 +46,8 @@ Before running the **Attack Simulator**, ensure you have the following:
    - `--verify-detections`: Run local verification for detections.
    - `--use-existing-pod POD_NAME`: Use an existing pod for the simulation instead of deploying a new one.
    - `--app-yaml-path PATH`: Specify the path to the application YAML file to deploy (default: `ping-app.yaml`).
+   - `--pre-run-script PATH`: Specify a shell script to run during the pre-run activities instead of the default activities.
+   - `--attack-script PATH`: Specify a shell script to run instead of the default attack activities.
 
    **Additional Options**:
 
@@ -97,6 +100,26 @@ Here are some examples of how to use the script with different flags and modes:
   ./attack-simulator.sh --learning-period 5m
   ```
 
+- **Using a Custom Pre-Run Script**:
+  To use a custom shell script for pre-run activities:
+  ```bash
+  ./attack-simulator.sh --pre-run-script /path/to/your/pre-run-script.sh
+  ```
+  - **Note**: Ensure that the script is executable and compatible with the environment inside the pod.
+
+- **Using a Custom Attack Script**:
+  To use a custom shell script for attack activities instead of the default incidents:
+  ```bash
+  ./attack-simulator.sh --attack-script /path/to/your/attack-script.sh
+  ```
+  - The script will execute your custom attack script inside the pod and monitor logs for any detections.
+
+- **Using Both Custom Scripts**:
+  To use both custom pre-run and attack scripts:
+  ```bash
+  ./attack-simulator.sh --pre-run-script /path/to/your/pre-run-script.sh --attack-script /path/to/your/attack-script.sh
+  ```
+
 - **Skipping Specific Pre-checks**:
   This example skips checking whether `kubectl` and `jq` are installed and bypasses the `runtime_detection` enablement check.
   ```bash
@@ -119,8 +142,9 @@ Here are some examples of how to use the script with different flags and modes:
 
 - **Deploys a web application**: The script deploys a web application with a unique name, configured to operate for a specific learning period.
 - **Verifies readiness**: It checks the readiness of Kubescape's components and ensures runtime detection capabilities are enabled.
-- **Initiates predefined security incidents**: The script triggers multiple simulated security incidents, such as unauthorized API access, unexpected process launches, environment variable exposure, and crypto mining domain communication.
-- **Verifies detection logs**: After initiating the incidents, the script checks the logs to confirm that Kubescape has accurately detected each incident.
+- **Generates activities to populate the application profile**: If a custom pre-run script is provided via `--pre-run-script`, the script copies and executes it inside the pod to generate baseline activities. Otherwise, it performs default pre-run activities.
+- **Initiates security incidents**: The script triggers multiple simulated security incidents, such as unauthorized API access, unexpected process launches, environment variable exposure, and crypto mining domain communication. If a custom attack script is provided via `--attack-script`, it executes the script inside the pod instead of the default incidents.
+- **Monitors and verifies detections**: After initiating the incidents, the script monitors the logs to confirm that Kubescape has accurately detected each incident. When using a custom attack script, it logs any new events after a checkpoint and filters them by the application name.
 - **Prompts for cleanup**: Finally, it prompts the user to remove the test application, ensuring a clean environment after the simulation.
 
 ---
