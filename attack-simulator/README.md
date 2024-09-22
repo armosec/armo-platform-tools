@@ -61,16 +61,18 @@ Before running the **Attack Simulator**, ensure you have the following:
      - `runtime_detection`: Skips checking if runtime detection is enabled in Kubescape.
      - `namespace_existence`: Skips checking if the specified namespaces exist.
      - `all`: Skips all of the pre-checks mentioned above.
-   - `--verify-detections-delay DELAY`: Set the delay before verifying detections (default: `10s`).
+   - `--verify-detections-delay DELAY`: Set the delay before verifying detections (default: `5s`).
    - `--kubescape-readiness-timeout TIMEOUT`: Set the timeout for checking Kubescape components readiness (default: `10s`).
    - `--app-creation-timeout TIMEOUT`: Set the timeout for application pod creation (default: `60s`).
    - `--app-profile-creation-timeout TIMEOUT`: Set the timeout for application profile creation (default: `10s`).
    - `--app-profile-readiness-timeout TIMEOUT`: Set the timeout for application profile readiness (default: `300s`).
    - `--app-profile-completion-timeout TIMEOUT`: Set the timeout for application profile completion (default: `600s`).
+   - `--keep-logs`: Keep log files generated during script execution. By default, logs are deleted.
+   - `--keep-app`: Keep the deployed application after the script finishes. By default, the application is deleted.
    - `-h, --help`: Display detailed usage information and exit.
 
 4. **Cleanup**:
-   - After running the simulation, the script will prompt you to decide whether to delete the deployed application. You can choose to clean up or retain the application for further analysis and investigation.
+   - After running the simulation, the script will automatically delete the deployed application and log files, unless overridden with `--keep-app` or `--keep-logs`.
 
 ## Extended Usage Examples
 
@@ -145,7 +147,7 @@ Here are some examples of how to use the script with different flags and modes:
 - **Generates activities to populate the application profile**: If a custom pre-run script is provided via `--pre-run-script`, the script copies and executes it inside the pod to generate baseline activities. Otherwise, it performs default pre-run activities.
 - **Initiates security incidents**: The script triggers multiple simulated security incidents, such as unauthorized API access, unexpected process launches, environment variable exposure, and crypto mining domain communication. If a custom attack script is provided via `--attack-script`, it executes the script inside the pod instead of the default incidents.
 - **Monitors and verifies detections**: After initiating the incidents, the script monitors the logs to confirm that Kubescape has accurately detected each incident. When using a custom attack script, it logs any new events after a checkpoint and filters them by the application name.
-- **Prompts for cleanup**: Finally, it prompts the user to remove the test application, ensuring a clean environment after the simulation.
+- **Automatically cleans up**: By default, the script deletes the test application and removes log files unless `--keep-app` or `--keep-logs` arguments are used to override this behavior.
 
 ---
 
