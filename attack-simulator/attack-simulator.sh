@@ -4,7 +4,6 @@
 # Default values
 #################
 
-APP_NAME="simulation-app-$(date +%s)"
 NAMESPACE=$(kubectl config view --minify --output 'jsonpath={..namespace}')
 NAMESPACE=${NAMESPACE:-default}
 KUBESCAPE_NAMESPACE="kubescape"
@@ -14,70 +13,76 @@ VERIFY_DETECTIONS=false
 EXISTING_POD_NAME=""
 LEARNING_PERIOD="3m"
 APP_YAML_PATH="ping-app.yaml"
+KEEP_LOGS=false
+KEEP_APP=false
 
 PRE_RUN_SCRIPT=""
 ATTACK_SCRIPT=""
 PRE_RUN_PID=""
-ATTACK_PID=""
-
+ATTACK_DURATION="10s"
 
 KUBESCAPE_READINESS_TIMEOUT=10s
 APP_CREATION_TIMEOUT=60s
 APP_PROFILE_CREATION_TIMEOUT=10s
 APP_PROFILE_READINESS_TIMEOUT=300s
 APP_PROFILE_COMPLETION_TIMEOUT=600s
-VERIFY_DETECTIONS_DELAY=10s
+VERIFY_DETECTIONS_DELAY=5s
+
+APP_NAME="simulation-app-$(date +%s)"
+LOG_FILES=()
 
 #######################
 # Function Definitions
 #######################
 
 cleanup() {
+    local app_deleted=false
+
     # Cleanup the deployed application if necessary
     if [[ -z "${EXISTING_POD_NAME}" ]]; then
-        # Prompt to delete the deployed application
-        read -p "🗑️ Would you like to delete the deployed application? [Y/n] " -r
-        REPLY=${REPLY:-Y}
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
+        if [[ "$KEEP_APP" == false ]]; then
             echo "🧹 Cleaning up '${APP_YAML_PATH}' in namespace: '${NAMESPACE}'..."
             sed -e "s/\${APP_NAME}/${APP_NAME}/g" -e "s/\${LEARNING_PERIOD}/${LEARNING_PERIOD}/g" "${APP_YAML_PATH}" | kubectl delete -n "${NAMESPACE}" -f - &> /dev/null || echo "⚠️ Failed to delete '${APP_YAML_PATH}'."
-            echo "✅ '${APP_NAME}' was deleted successfully."
+            echo "✅ '${APP_NAME}' was deleted successfully. This can be configured using the '--keep-app' argument."
+            app_deleted=true
         else
-            echo "✅ '${APP_NAME}' was not deleted."
-        fi
-    else
-        echo "⏭️ Skipping application deletion since an existing pod '${EXISTING_POD_NAME}' was used."
-    fi
-
-    # Prompt to stop background processes related to the pre-run or attack scripts
-    if [[ -n "${PRE_RUN_PID}" || -n "${ATTACK_PID}" ]]; then
-        read -p "🧹 Would you like to stop the running processes from the pre-run or attack scripts? [Y/n] " -r
-        REPLY=${REPLY:-Y}
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            if [[ -n "${PRE_RUN_PID}" ]]; then
-                echo "🧹 Stopping pre-run script process with PID: ${PRE_RUN_PID}..."
-                kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- kill -9 "${PRE_RUN_PID}" &> /dev/null || echo "⚠️ Failed to stop pre-run script process."
-            fi
-
-            if [[ -n "${ATTACK_PID}" ]]; then
-                echo "🧹 Stopping attack script process with PID: ${ATTACK_PID}..."
-                kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- kill -9 "${ATTACK_PID}" &> /dev/null || echo "⚠️ Failed to stop attack script process."
-            fi
-            echo "✅ Background processes were stopped successfully."
-        else
-            echo "✅ Background processes were not stopped."
+            echo "⚠️ Application was kept as per the '--keep-app' argument."
         fi
     fi
 
-    # Cleanup pre-run script and attack script, and logs
-    if [[ -n "${PRE_RUN_SCRIPT}" || -n "${ATTACK_SCRIPT}" ]]; then
-        echo "🧹 Cleaning up the pre-run script, attack script, and logs from the pod '${APP_POD_NAME}'..."
-        kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- rm -f /tmp/pre-run-script.sh /tmp/attack-script.sh /tmp/attack-script.log &> /dev/null || echo "⚠️ Failed to remove pre-run or attack script or logs."
-        echo "✅ Pre-run script, attack script, and logs removed successfully."
+    if [[ "$app_deleted" = false && -n "${PRE_RUN_PID}" ]]; then
+        echo "🧹 Stopping pre-run script process with PID: '${PRE_RUN_PID}'..."
+        PRE_RUN_CHILD_PIDs=$(kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- pgrep --parent "${PRE_RUN_PID}" 2> /dev/null)
+        kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- kill -9 "${PRE_RUN_PID}" "${PRE_RUN_CHILD_PIDs}" &> /dev/null || echo "⚠️ Failed to stop pre-run script process."
+        echo "✅ Background processes were stopped successfully."
+
+        echo "🧹 Cleaning up the pre-run script from the pod '${APP_POD_NAME}'..."
+        kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- rm -f /tmp/pre-run-script.sh &> /dev/null || echo "⚠️ Failed to remove pre-run script."
+        echo "✅ Pre-run script removed successfully."
     fi
+
+    if [[ ${#LOG_FILES[@]} -gt 0 ]]; then
+        echo "🧹 These log files were generated:"
+        for log_file in "${LOG_FILES[@]}"; do
+            echo " - ${log_file}"
+        done
+
+        if [[ "$KEEP_LOGS" == false ]]; then
+            for log_file in "${LOG_FILES[@]}"; do
+                rm -f "${log_file}" || echo "⚠️ Failed to remove: ${log_file}"
+            done
+            echo "✅ All log files removed. This can be configured using the '--keep-logs' argument."
+        else
+            echo "⚠️ Log files were kept as per the '--keep-logs' argument."
+        fi
+    fi
+
 
     # Reset trap and exit
     trap - EXIT
+    echo "✅ Cleanup completed."
+    echo "✅ Script execution completed successfully."
+
     exit 0
 }
 
@@ -130,22 +135,25 @@ print_usage() {
     echo "                                          - 'interactive': Wait for user input to initiate security incidents."
     echo "                                          - 'investigation': Allows you to run any command and automatically prints local detections triggered by the command."
     echo "                                          - 'run_all_once' (default): Automatically initiates security incidents once and exits."
-    echo "  --verify-detections                     Run local verification for detections."
     echo "  --use-existing-pod POD_NAME             Use an existing pod instead of deploying a new one."
     echo "  --app-yaml-path PATH                    Specify the path to the application YAML file to deploy. Default is 'ping-app.yaml'."
-    echo "  --pre-run-script PATH                   Specify a shell script to run during the pre-run activities."
-    echo "  --attack-script PATH                    Specify a shell script to run instead of the default attack activities."
     echo
-    echo "Additional Options:"
+    echo "Advance Options:"
+    echo "  --verify-detections                     Run local verification for detections."
     echo "  --kubescape-namespace KUBESCAPE_NAMESPACE Specify the namespace where Kubescape components are deployed (default: 'kubescape')."
     echo "  --learning-period LEARNING_PERIOD       Set the learning period duration (default: 3m). Should not be used with --use-existing-pod."
+    echo "  --pre-run-script PATH                   Specify a shell script to run during the pre-run activities."
+    echo "  --attack-script PATH                    Specify a shell script to run instead of the default attack activities."
+    echo "  --attack-duration DURATION              Specify the duration to run the attack script (default: '10s')."
     echo "  --skip-pre-checks CHECK1,CHECK2,...     Skip specific pre-checks before running the script. Available options: 'kubectl_installed', 'kubectl_version', 'jq_installed', 'kubescape_components', 'runtime_detection', 'namespace_existence', 'all'."
-    echo "  --verify-detections-delay DELAY         Set the delay before verifying detections (default: 10s)."
+    echo "  --verify-detections-delay DELAY         Set the delay before verifying detections (default: 5s)."
     echo "  --kubescape-readiness-timeout TIMEOUT   Set the timeout for checking Kubescape components readiness (default: 10s)."
     echo "  --app-creation-timeout TIMEOUT          Set the timeout for application's pod creation (default: 60s)."
     echo "  --app-profile-creation-timeout TIMEOUT  Set the timeout for application profile creation (default: 10s)."
     echo "  --app-profile-readiness-timeout TIMEOUT Set the timeout for application profile readiness (default: 300s)."
     echo "  --app-profile-completion-timeout TIMEOUT Set the timeout for application profile completion (default: 600s)."
+    echo "  --keep-logs                             Keep log files generated during script execution. By default, logs are deleted."
+    echo "  --keep-app                              Keep the deployed application after the script finishes. By default, the application is deleted."
     echo "  -h, --help                              Display this help message and exit."
 }
 
@@ -196,6 +204,10 @@ while [[ "$#" -gt 0 ]]; do
             ATTACK_SCRIPT="$2"
             shift 2
             ;;
+        --attack-duration)
+            ATTACK_DURATION="$2"
+            shift 2
+            ;;
         --kubescape-readiness-timeout)
             KUBESCAPE_READINESS_TIMEOUT="$2"
             shift 2
@@ -219,6 +231,14 @@ while [[ "$#" -gt 0 ]]; do
         --verify-detections-delay)
             VERIFY_DETECTIONS_DELAY="$2"
             shift 2
+            ;;
+        --keep-logs)  # **Added: Argument to keep logs**
+            KEEP_LOGS=true
+            shift
+            ;;
+        --keep-app)  # **Added: Argument to keep the application**
+            KEEP_APP=true
+            shift
             ;;
         -h|--help)
             print_usage
@@ -250,6 +270,7 @@ check_time_format "APP_PROFILE_READINESS_TIMEOUT" "s"
 check_time_format "APP_PROFILE_COMPLETION_TIMEOUT" "s"
 check_time_format "LEARNING_PERIOD" "mh"
 check_time_format "VERIFY_DETECTIONS_DELAY" "s"
+check_time_format "ATTACK_DURATION" "s"  # **Added: Time Format Check for Attack Duration**
 
 # Validate that the simulation-app.yaml file exists
 if [[ ! -f "${APP_YAML_PATH}" ]]; then
@@ -346,6 +367,9 @@ fi
 # Deploy or Validate Application Pod
 #####################################
 
+# Trap any EXIT signal and call the cleanup function
+trap cleanup EXIT
+
 # Check if the provided pod exists, is ready, and if its application profile exists and is completed
 if [[ -n "${EXISTING_POD_NAME}" ]]; then
     echo "🔍 Checking if the pod and its application profile are ready..."
@@ -377,9 +401,6 @@ if [[ -n "${EXISTING_POD_NAME}" ]]; then
 
     echo "✅ The provided pod and its application profile are ready."
 else
-    # Trap any EXIT signal and call the cleanup function
-    trap cleanup EXIT
-
     echo "🚀 Deploying the application: '${APP_NAME}' in namespace: '${NAMESPACE}' with a learning period of ⏰ '${LEARNING_PERIOD}'..."
     sed -e "s/\${APP_NAME}/${APP_NAME}/g" -e "s/\${LEARNING_PERIOD}/${LEARNING_PERIOD}/g" "${APP_YAML_PATH}" | kubectl apply -n "${NAMESPACE}" -f - &> /dev/null || error_exit "Failed to apply '${APP_YAML_PATH}'. Exiting."
     
@@ -387,8 +408,8 @@ else
     APP_POD_NAME=""
     SECONDS=0 # Initialize the SECONDS counter
     while [[ -z "${APP_POD_NAME}" ]]; do
-        if (( SECONDS >= ${APP_CREATION_TIMEOUT%s} )); then
-            error_exit "Timed out after ${APP_CREATION_TIMEOUT} seconds waiting for application's pod to be created."
+        if (( SECONDS >= "${APP_CREATION_TIMEOUT%s}" )); then
+            error_exit "Timed out after '${APP_CREATION_TIMEOUT}' seconds waiting for application's pod to be created."
         fi
         APP_POD_NAME=$(kubectl get pod -l app="${APP_NAME}" -n "${NAMESPACE}" -o jsonpath='{.items[0].metadata.name}' 2> /dev/null)
         sleep 1
@@ -407,8 +428,8 @@ else
     APP_PROFILE_NAME=""
     SECONDS=0  # Initialize the SECONDS counter
     while [[ -z "${APP_PROFILE_NAME}" ]]; do
-        if (( SECONDS >= ${APP_PROFILE_CREATION_TIMEOUT%s} )); then
-            error_exit "Timed out after ${APP_PROFILE_CREATION_TIMEOUT} seconds waiting for application profile creation."
+        if (( SECONDS >= "${APP_PROFILE_CREATION_TIMEOUT%s}" )); then
+            error_exit "Timed out after '${APP_PROFILE_CREATION_TIMEOUT}' seconds waiting for application profile creation."
         fi
         APP_PROFILE_NAME=$(kubectl get "${APP_PROFILE_API}" -n "${NAMESPACE}" -o json 2> /dev/null | jq -r --arg APP_NAME "${APP_NAME}" '.items[] | select(.metadata.labels["kubescape.io/workload-name"]==$APP_NAME) | .metadata.name')
         sleep 1
@@ -423,8 +444,8 @@ else
     if [[ -n "${PRE_RUN_SCRIPT}" ]]; then
         echo "🛠️ Copying pre-run script '${PRE_RUN_SCRIPT}' to the pod and executing it..."
         kubectl cp "${PRE_RUN_SCRIPT}" "${NAMESPACE}/${APP_POD_NAME}:/tmp/pre-run-script.sh" || error_exit "Failed to copy pre-run script to the pod."
-        PRE_RUN_PID=$(kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/pre-run-script.sh && nohup /tmp/pre-run-script.sh > /dev/null 2>&1 & echo $!') || error_exit "Failed to execute pre-run script on the pod."
-        echo "✅ Pre-run script executed successfully with PID: ${PRE_RUN_PID}."
+        PRE_RUN_PID=$(kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/pre-run-script.sh && /tmp/pre-run-script.sh > /tmp/pre-run-script.log 2>&1 & echo $!') || error_exit "Failed to execute pre-run script on the pod."
+        echo "✅ Pre-run script executed successfully with PID: '${PRE_RUN_PID}'."
     else
         echo "🛠️ Generating default activities to populate the application profile..."
         kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c '
@@ -494,6 +515,63 @@ initiate_security_incidents() {
     echo "✅ All of the desired incidents detected successfully locally."
 }
 
+######################################
+# Execute Attack Script with Cleanup
+######################################
+
+execute_attack_script() {
+    echo "🛠️ Copying attack script '${ATTACK_SCRIPT}' to the pod and executing it..."
+    CHECKPOINT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    kubectl cp "${ATTACK_SCRIPT}" "${NAMESPACE}/${APP_POD_NAME}:/tmp/attack-script.sh" || error_exit "Failed to copy attack script to the pod."
+    # Start executing the attack script in the background
+    kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/attack-script.sh && /tmp/attack-script.sh' &
+    ATTACK_PID=$!
+    echo "✅ Attack script started with PID: '${ATTACK_PID}'."
+
+    # **Added: Dedicated Cleanup Function for Attack Script**
+    cleanup_attack() {
+        echo "🧹 Cleaning up the attack script..."
+        kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- pkill -f "/tmp/attack-script.sh" &> /dev/null || echo "⚠️ Failed to kill attack script process."
+        kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- rm -f /tmp/attack-script.sh &> /dev/null || echo "⚠️ Failed to remove attack script from the pod."
+        echo "✅ Attack script cleaned up successfully."
+    }
+
+    # **Modified: Wait for Configurable Duration Instead of Using 'wait'**
+    wait_for_termination() {
+        echo
+        echo "==============================================================="
+        echo "⏳ Attack script will run for '${ATTACK_DURATION}' (or press Ctrl+C to stop)..."
+        echo "==============================================================="
+        echo "To adjust the duration, use the '--attack-duration' argument."
+        echo
+        sleep "${ATTACK_DURATION%s}"
+        cleanup_attack
+    }
+
+    # **Keep: Trap Ctrl+C to Invoke Cleanup Without Exiting Script Prematurely**
+    trap 'echo "⏹️ Ctrl+C detected. Stopping attack script..."; cleanup_attack' SIGINT
+
+    wait_for_termination
+
+    # Remove the trap after completion
+    trap - SIGINT
+
+    if [[ "${VERIFY_DETECTIONS}" == true ]]; then
+        sleep "${VERIFY_DETECTIONS_DELAY%s}"
+        log_destination="/tmp/${APP_NAME}-attack-detections-$(date +%s).log"
+        LOG_FILES+=("${log_destination}")
+
+        echo "📝 Logging new events after checkpoint '${CHECKPOINT}' and filtering by app name '${APP_NAME}'..."
+        kubectl logs --since-time "${CHECKPOINT}" -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}" | grep "${APP_NAME}" > "${log_destination}" || \
+        error_exit "Failed to fetch logs from node-agent pod. Exiting."
+        
+        echo "📝 Full log saved to ‘${log_destination}’. Below is a summary."
+        
+        jq -r '.BaseRuntimeMetadata.alertName' "${log_destination}" | sort | uniq -c | sort -nr || echo "⚠️ No detections found in the logs."
+        
+    fi
+}
+
 #######
 # Main
 #######
@@ -505,21 +583,11 @@ case $MODE in
             read -p "👩‍🔬 Do you want to initiate a security incident? [y/n]: " choice
             if [[ "${choice}" == "y" || "${choice}" == "Y" ]]; then
                 if [[ -n "${ATTACK_SCRIPT}" ]]; then
-                    echo "🛠️ Copying attack script '${ATTACK_SCRIPT}' to the pod and executing it..."
-                    CHECKPOINT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-                    kubectl cp "${ATTACK_SCRIPT}" "${NAMESPACE}/${APP_POD_NAME}:/tmp/attack-script.sh" || error_exit "Failed to copy attack script to the pod."
-                    ATTACK_PID=$(kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/attack-script.sh && nohup /tmp/attack-script.sh > /tmp/attack-script.log 2>&1 & echo $!') && \
-                    echo "✅ Attack script executed successfully with PID: ${ATTACK_PID}." || error_exit "Failed to execute attack script on the pod."
-                    kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- tail -f /tmp/attack-script.log &
-                    echo "✅ Attack script executed successfully." || error_exit "Failed to execute attack script on the pod."
-                    if [[ "${VERIFY_DETECTIONS}" == true ]]; then
-                        echo "📝 Logging new events after checkpoint '${CHECKPOINT}' and filtering by app name '${APP_NAME}'..."
-                        kubectl logs --since-time "${CHECKPOINT}" -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}" -f | grep "${APP_NAME}" || error_exit "Failed to fetch logs from node-agent pod. Exiting."
-                    fi
+                    execute_attack_script
                 else
                     initiate_security_incidents
                     if [[ "${VERIFY_DETECTIONS}" == true ]]; then
-                        sleep ${VERIFY_DETECTIONS_DELAY%s}
+                        sleep "${VERIFY_DETECTIONS_DELAY%s}"
                         verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
                     fi
                 fi
@@ -536,9 +604,9 @@ case $MODE in
         while true; do
             echo
             read -p "$ " choice
-            echo ${choice}
+            echo "${choice}"
             checkpoint=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-            kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c "${choice}" && echo "✅ Command executed successfully. Waiting for detections" && sleep ${VERIFY_DETECTIONS_DELAY%s} || \
+            kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c "${choice}" && echo "✅ Command executed successfully. Waiting for detections" && sleep '${VERIFY_DETECTIONS_DELAY%s}' || \
             echo "⚠️ Failed to execute the command."
             echo "🔍 Checking for threat detections triggered by your command..."
             echo "============================================================="
@@ -568,20 +636,11 @@ case $MODE in
         ;;
     "run_all_once" | *)
         if [[ -n "${ATTACK_SCRIPT}" ]]; then
-            echo "🛠️ Copying attack script '${ATTACK_SCRIPT}' to the pod and executing it..."
-            CHECKPOINT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-            kubectl cp "${ATTACK_SCRIPT}" "${NAMESPACE}/${APP_POD_NAME}:/tmp/attack-script.sh" || error_exit "Failed to copy attack script to the pod."
-            ATTACK_PID=$(kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/attack-script.sh && nohup /tmp/attack-script.sh > /tmp/attack-script.log 2>&1 & echo $!') && \
-            echo "✅ Attack script executed successfully with PID: ${ATTACK_PID}." || error_exit "Failed to execute attack script on the pod."
-            kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- tail -f /tmp/attack-script.log &
-            if [[ "${VERIFY_DETECTIONS}" == true ]]; then
-                echo "📝 Logging new events after checkpoint '${CHECKPOINT}' and filtering by app name '${APP_NAME}'..."
-                kubectl logs --since-time "${CHECKPOINT}" -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}" -f | grep "${APP_NAME}" || error_exit "Failed to fetch logs from node-agent pod. Exiting."
-            fi
+            execute_attack_script
         else
             initiate_security_incidents
             if [[ "${VERIFY_DETECTIONS}" == true ]]; then
-                sleep ${VERIFY_DETECTIONS_DELAY%s}
+                sleep "${VERIFY_DETECTIONS_DELAY%s}"
                 verify_detections "Unexpected process launched" "Unexpected service account token access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
             fi
             echo "✅ Exiting after one-time incident initiation."
@@ -590,4 +649,3 @@ case $MODE in
 esac
 
 cleanup
-echo "✅ Script execution completed successfully."

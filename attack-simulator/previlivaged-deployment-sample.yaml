@@ -23,7 +23,7 @@ spec:
         name: ${APP_NAME}-container
         securityContext:
           privileged: true    # To allow sudo to work
-        command: ["/bin/bash", "-c", "apt-get update && apt-get install -y sudo && while true; do sleep 1000; done"]
+        command: ["/bin/bash", "-c", "apt-get update && apt-get install -y sudo curl && while true; do sleep 1000; done"]
         resources: {}
         env:
         - name: LEARNING_PERIOD
