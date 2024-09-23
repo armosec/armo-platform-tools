@@ -38,22 +38,23 @@ Before running the **Attack Simulator**, ensure you have the following:
 
    **Main Options**:
 
-   - `-n, --namespace NAMESPACE`: Specify the namespace where the application should be deployed or where the existing pod is located (default: current context namespace or 'default').
+   - `-n, --namespace NAMESPACE`: Specify the namespace for deploying a new application or locating an existing pod (default: current context namespace or 'default').
+   - `--use-existing-pod POD_NAME`: Use an existing pod for the simulation instead of deploying a new one.
+   - `--verify-detections`: Run local verification for detections.
+
+   **Advanced Options**:
+
+   - `--pre-run-script PATH`: Specify a shell script to run during the pre-run activities.
+   - `--attack-script PATH`: Specify a shell script to run instead of the default attack activities.
+   - `--attack-duration DURATION`: Specify the duration to run the attack script (default: `10s`).
+   - `--app-yaml-path PATH`: Specify the path to the application YAML file to deploy (default: `ping-app.yaml`).
    - `--mode MODE`: Set the execution mode. Available modes:
      - `interactive`: Wait for user input to initiate security incidents.
-     - `investigation`: Run any command and automatically print local detections triggered by the command.
-     - `run_all_once` (default): Automatically initiate security incidents once and exit.
-   - `--verify-detections`: Run local verification for detections.
-   - `--use-existing-pod POD_NAME`: Use an existing pod for the simulation instead of deploying a new one.
-   - `--app-yaml-path PATH`: Specify the path to the application YAML file to deploy (default: `ping-app.yaml`).
-   - `--pre-run-script PATH`: Specify a shell script to run during the pre-run activities instead of the default activities.
-   - `--attack-script PATH`: Specify a shell script to run instead of the default attack activities.
-
-   **Additional Options**:
-
+     - `investigation`: Allows you to run any command and automatically prints local detections triggered by the command.
+     - `run_all_once` (default): Automatically initiates security incidents once and exits.
+   - `--learning-period LEARNING_PERIOD`: Set the learning period duration (default: `3m`). Should not be used with `--use-existing-pod`.
    - `--kubescape-namespace KUBESCAPE_NAMESPACE`: Specify the namespace where Kubescape components are deployed (default: `kubescape`).
-   - `--learning-period LEARNING_PERIOD`: Define the duration for the learning period of the application (default: `3m`). Applicable only when deploying a new application.
-   - `--skip-pre-checks CHECK1,CHECK2,... | all`: Skip specific pre-checks before the script runs. Available options:
+   - `--skip-pre-checks CHECK1,CHECK2,...`: Skip specific pre-checks before running the script. Available options:
      - `kubectl_installed`: Skips checking if `kubectl` is installed.
      - `kubectl_version`: Skips checking if the `kubectl` client version is compatible with the Kubernetes cluster.
      - `jq_installed`: Skips checking if `jq` is installed.
@@ -61,14 +62,16 @@ Before running the **Attack Simulator**, ensure you have the following:
      - `runtime_detection`: Skips checking if runtime detection is enabled in Kubescape.
      - `namespace_existence`: Skips checking if the specified namespaces exist.
      - `all`: Skips all of the pre-checks mentioned above.
-   - `--verify-detections-delay DELAY`: Set the delay before verifying detections (default: `5s`).
    - `--kubescape-readiness-timeout TIMEOUT`: Set the timeout for checking Kubescape components readiness (default: `10s`).
    - `--app-creation-timeout TIMEOUT`: Set the timeout for application pod creation (default: `60s`).
    - `--app-profile-creation-timeout TIMEOUT`: Set the timeout for application profile creation (default: `10s`).
    - `--app-profile-readiness-timeout TIMEOUT`: Set the timeout for application profile readiness (default: `300s`).
    - `--app-profile-completion-timeout TIMEOUT`: Set the timeout for application profile completion (default: `600s`).
+   - `--verify-detections-delay DELAY`: Set the delay before verifying detections (default: `30s`).
+   - `--post-app-profile-completion-delay DELAY`: Set the delay after application profile completion (default: `30s`).
    - `--keep-logs`: Keep log files generated during script execution. By default, logs are deleted.
    - `--keep-app`: Keep the deployed application after the script finishes. By default, the application is deleted.
+   - `--debug`: Enable debug mode for detailed logging.
    - `-h, --help`: Display detailed usage information and exit.
 
 4. **Cleanup**:
@@ -114,6 +117,11 @@ Here are some examples of how to use the script with different flags and modes:
   ```bash
   ./attack-simulator.sh --attack-script /path/to/your/attack-script.sh
   ```
+  - **Adjusting Attack Duration**:
+    To specify the duration for which the attack script runs (e.g., 20 seconds):
+    ```bash
+    ./attack-simulator.sh --attack-script /path/to/your/attack-script.sh --attack-duration 20s
+    ```
   - The script will execute your custom attack script inside the pod and monitor logs for any detections.
 
 - **Using Both Custom Scripts**:
@@ -140,13 +148,29 @@ Here are some examples of how to use the script with different flags and modes:
   ./attack-simulator.sh --use-existing-pod my-existing-pod
   ```
 
+- **Enabling Debug Mode**:
+  To enable detailed logging for troubleshooting purposes:
+  ```bash
+  ./attack-simulator.sh --debug
+  ```
+
+- **Adjusting Post Application Profile Completion Delay**:
+  To set a different delay after the application profile has completed (e.g., 60 seconds):
+  ```bash
+  ./attack-simulator.sh --post-app-profile-completion-delay 60s
+  ```
+
 ## How It Works
 
 - **Deploys a web application**: The script deploys a web application with a unique name, configured to operate for a specific learning period.
 - **Verifies readiness**: It checks the readiness of Kubescape's components and ensures runtime detection capabilities are enabled.
 - **Generates activities to populate the application profile**: If a custom pre-run script is provided via `--pre-run-script`, the script copies and executes it inside the pod to generate baseline activities. Otherwise, it performs default pre-run activities.
+- **Waits for the application profile to complete**: After generating activities, the script waits for the application profile to reach the `completed` status. Once completed, it waits for an additional delay (configurable via `--post-app-profile-completion-delay`, default: `30s`) to ensure all components are fully ready.
 - **Initiates security incidents**: The script triggers multiple simulated security incidents, such as unauthorized API access, unexpected process launches, environment variable exposure, and crypto mining domain communication. If a custom attack script is provided via `--attack-script`, it executes the script inside the pod instead of the default incidents.
+  - **Adjusting Attack Duration**: You can specify how long the attack script should run using the `--attack-duration` option.
 - **Monitors and verifies detections**: After initiating the incidents, the script monitors the logs to confirm that Kubescape has accurately detected each incident. When using a custom attack script, it logs any new events after a checkpoint and filters them by the application name.
+  - **Verification Delay**: The script waits for a configurable delay (default: `30s`, set via `--verify-detections-delay`) before verifying detections to allow time for logs to be generated.
+- **Centralized Logging**: The script uses a centralized logging mechanism, and you can enable detailed logging (debug mode) using the `--debug` option.
 - **Automatically cleans up**: By default, the script deletes the test application and removes log files unless `--keep-app` or `--keep-logs` arguments are used to override this behavior.
 
 ---
