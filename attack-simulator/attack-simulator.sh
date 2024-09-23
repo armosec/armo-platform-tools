@@ -70,7 +70,8 @@ cleanup() {
     if [[ -z "${EXISTING_POD_NAME}" ]]; then
         if [[ "$KEEP_APP" == false ]]; then
             log "INFO" "🧹 Cleaning up '${APP_YAML_PATH}' in namespace: '${NAMESPACE}'..."
-            sed -e "s/\${APP_NAME}/${APP_NAME}/g" -e "s/\${LEARNING_PERIOD}/${LEARNING_PERIOD}/g" "${APP_YAML_PATH}" | kubectl delete -n "${NAMESPACE}" -f - &> /dev/null || \
+            sed -e "s/\${APP_NAME}/${APP_NAME}/g" -e "s/\${LEARNING_PERIOD}/${LEARNING_PERIOD}/g" "${APP_YAML_PATH}" | \
+                kubectl delete -n "${NAMESPACE}" -f - &> /dev/null || \
                 log "INFO" "⚠️ Failed to delete '${APP_YAML_PATH}'."
             log "INFO" "✅ '${APP_NAME}' was deleted successfully. This can be configured using the '--keep-app' argument."
             app_deleted=true
@@ -128,7 +129,9 @@ kubectl_version_compatibility_check() {
     server_version=$(echo "${versions}" | jq -r '.serverVersion | "\(.major).\(.minor|split("+")[0])"')
 
     # Compare versions
-    if [[ "${client_version}" == "${server_version}" || "${client_version}" == "1.$(( ${server_version#1.} + 1 ))" || "${server_version}" == "1.$(( ${client_version#1.} + 1 ))" ]]; then
+    if [[ "${client_version}" == "${server_version}" || \
+        "${client_version}" == "1.$(( ${server_version#1.} + 1 ))" || \
+        "${server_version}" == "1.$(( ${client_version#1.} + 1 ))" ]]; then
         log "DEBUG" "✅ Client '${client_version}' and server '${server_version}' versions are compatible."
     else
         log "DEBUG" "⚠️ Client '${client_version}' and server '${server_version}' versions are NOT compatible."
@@ -147,7 +150,8 @@ check_kubescape_components() {
         kollector
     )
     for component in "${components[@]}"; do
-        kubectl wait -n "${KUBESCAPE_NAMESPACE}" --for=condition=ready pod -l app.kubernetes.io/component="${component}" --timeout="${KUBESCAPE_READINESS_TIMEOUT}" > /dev/null || \
+        kubectl wait -n "${KUBESCAPE_NAMESPACE}" --for=condition=ready pod -l app.kubernetes.io/component="${component}" \
+            --timeout="${KUBESCAPE_READINESS_TIMEOUT}" > /dev/null || \
             error_exit "'${component}' is not ready. Exiting."
     done
     log "DEBUG" "✅ All Kubescape's components are ready."
@@ -158,7 +162,7 @@ print_usage() {
     log "INFO" "Usage: $0 [OPTIONS]"
     log "INFO" ""
     log "INFO" "Main Options:"
-    log "INFO" "  -n, --namespace NAMESPACE               Specify the namespace for deploying a new application or locating an existing pod (default: current context namespace or 'default')."
+    log "INFO" "  -n, --namespace NAMESPACE               Specify the namespace for deploying or locating a pod (default: current context or ‘default’ namespace)."
     log "INFO" "  --use-existing-pod POD_NAME             Use an existing pod instead of deploying a new one."
     log "INFO" "  --verify-detections                     Run local verification for detections."
     log "INFO" ""
@@ -173,7 +177,8 @@ print_usage() {
     log "INFO" "                                          - 'run_all_once' (default): Automatically initiates security incidents once and exits."
     log "INFO" "  --learning-period LEARNING_PERIOD       Set the learning period duration (default: 3m). Should not be used with --use-existing-pod."
     log "INFO" "  --kubescape-namespace KUBESCAPE_NAMESPACE Specify the namespace where Kubescape components are deployed (default: 'kubescape')."
-    log "INFO" "  --skip-pre-checks CHECK1,CHECK2,...     Skip specific pre-checks before running the script. Available options: 'kubectl_installed', 'kubectl_version', 'jq_installed', 'kubescape_components', 'runtime_detection', 'namespace_existence', 'all'."
+    log "INFO" "  --skip-pre-checks CHECK1,CHECK2,...     Skip specific pre-checks before running the script. Options:"
+    log "INFO" "                                          kubectl_installed, kubectl_version, jq_installed, kubescape_components, runtime_detection, namespace_existence, all."
     log "INFO" "  --kubescape-readiness-timeout TIMEOUT   Set the timeout for checking Kubescape components readiness (default: 10s)."
     log "INFO" "  --app-creation-timeout TIMEOUT          Set the timeout for application's pod creation (default: 60s)."
     log "INFO" "  --app-profile-creation-timeout TIMEOUT  Set the timeout for application profile creation (default: 10s)."
@@ -385,7 +390,8 @@ fi
 
 if ! skip_pre_check "runtime_detection"; then
     log "DEBUG" "🔍 Checking if Runtime Detection is enabled..."
-    kubectl get cm node-agent -n "${KUBESCAPE_NAMESPACE}" -o jsonpath='{.data.config\.json}' | jq '.applicationProfileServiceEnabled and .runtimeDetectionEnabled' | grep true &> /dev/null || \
+    kubectl get cm node-agent -n "${KUBESCAPE_NAMESPACE}" -o jsonpath='{.data.config\.json}' | \
+        jq '.applicationProfileServiceEnabled and .runtimeDetectionEnabled' | grep true &> /dev/null || \
         error_exit "One or both of 'applicationProfileServiceEnabled' and 'runtimeDetectionEnabled' are not enabled. Exiting."
     log "DEBUG" "✅ Runtime Detection is enabled."
 fi
@@ -433,7 +439,8 @@ if [[ -n "${EXISTING_POD_NAME}" ]]; then
     log "DEBUG" "✅ Application name '${APP_NAME}' retrieved successfully."
 
     # Check if the application profile exists and is completed
-    APP_PROFILE_NAME=$(kubectl get "${APP_PROFILE_API}" -n "${NAMESPACE}" -o json | jq -r --arg APP_NAME "${APP_NAME}" '.items[] | select(.metadata.labels["kubescape.io/workload-name"]==$APP_NAME) | .metadata.name') || \
+    APP_PROFILE_NAME=$(kubectl get "${APP_PROFILE_API}" -n "${NAMESPACE}" -o json | \
+        jq -r --arg APP_NAME "${APP_NAME}" '.items[] | select(.metadata.labels["kubescape.io/workload-name"]==$APP_NAME) | .metadata.name') || \
         error_exit "Failed to retrieve the application profile name for pod '${EXISTING_POD_NAME}' in namespace '${NAMESPACE}'."
     log "DEBUG" "✅ Application profile '${APP_PROFILE_NAME}' exists."
 
@@ -478,13 +485,15 @@ else
         if (( SECONDS >= "${APP_PROFILE_CREATION_TIMEOUT%s}" )); then
             error_exit "Timed out after '${APP_PROFILE_CREATION_TIMEOUT}' seconds waiting for application profile creation."
         fi
-        APP_PROFILE_NAME=$(kubectl get "${APP_PROFILE_API}" -n "${NAMESPACE}" -o json 2> /dev/null | jq -r --arg APP_NAME "${APP_NAME}" '.items[] | select(.metadata.labels["kubescape.io/workload-name"]==$APP_NAME) | .metadata.name')
+        APP_PROFILE_NAME=$(kubectl get "${APP_PROFILE_API}" -n "${NAMESPACE}" -o json 2> /dev/null | \
+            jq -r --arg APP_NAME "${APP_NAME}" '.items[] | select(.metadata.labels["kubescape.io/workload-name"]==$APP_NAME) | .metadata.name')
         sleep 1
     done
     log "DEBUG" "✅ Application profile '${APP_PROFILE_NAME}' in namespace '${NAMESPACE}' created successfully!"
 
     log "DEBUG" "⏳ Waiting for the application profile to be ready..."
-    kubectl wait --for=jsonpath="${STATUS_JSONPATH}"=ready "${APP_PROFILE_API}" "${APP_PROFILE_NAME}" -n "${NAMESPACE}" --timeout="${APP_PROFILE_READINESS_TIMEOUT}" &> /dev/null || \
+    kubectl wait --for=jsonpath="${STATUS_JSONPATH}"=ready "${APP_PROFILE_API}" "${APP_PROFILE_NAME}" -n "${NAMESPACE}" \
+        --timeout="${APP_PROFILE_READINESS_TIMEOUT}" &> /dev/null || \
         error_exit "Application profile is not ready after '${APP_PROFILE_READINESS_TIMEOUT}' timeout. Exiting."
 
     # Generate activities to populate the application profile
@@ -492,7 +501,8 @@ else
         log "DEBUG" "🛠️ Copying pre-run script '${PRE_RUN_SCRIPT}' to the pod and executing it..."
         kubectl cp "${PRE_RUN_SCRIPT}" "${NAMESPACE}/${APP_POD_NAME}:/tmp/pre-run-script.sh" || \
             error_exit "Failed to copy pre-run script to the pod."
-        PRE_RUN_PID=$(kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'chmod +x /tmp/pre-run-script.sh && /tmp/pre-run-script.sh > /tmp/pre-run-script.log 2>&1 & echo $!') || \
+        PRE_RUN_PID=$(kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- \
+            sh -c 'chmod +x /tmp/pre-run-script.sh && /tmp/pre-run-script.sh > /tmp/pre-run-script.log 2>&1 & echo $!') || \
             error_exit "Failed to execute pre-run script on the pod."
         log "INFO" "✅ Pre-run script executed successfully with PID: '${PRE_RUN_PID}'."
     else
@@ -509,7 +519,8 @@ else
     fi
 
     log "INFO" "⏳ Waiting for the application profile to be completed... This may take up to ⏰ '${LEARNING_PERIOD}'...."
-    kubectl wait --for=jsonpath="${STATUS_JSONPATH}"=completed "${APP_PROFILE_API}" "${APP_PROFILE_NAME}" -n "${NAMESPACE}" --timeout="${APP_PROFILE_COMPLETION_TIMEOUT}" &> /dev/null || \
+    kubectl wait --for=jsonpath="${STATUS_JSONPATH}"=completed "${APP_PROFILE_API}" "${APP_PROFILE_NAME}" -n "${NAMESPACE}" \
+        --timeout="${APP_PROFILE_COMPLETION_TIMEOUT}" &> /dev/null || \
         error_exit "Application profile is not completed after '${APP_PROFILE_COMPLETION_TIMEOUT}' timeout. Exiting."
     sleep "${POST_APP_PROFILE_COMPLETION_DELAY%s}"
     log "INFO" "✅ Application profile is completed!"
@@ -528,7 +539,8 @@ NODE_AGENT_POD=$(kubectl get pod -n "${KUBESCAPE_NAMESPACE}" -l app=node-agent -
 log "DEBUG" "✅ Node-agent pod identified: '${NODE_AGENT_POD}'."
 
 verify_detections() {
-    log "INFO" "🔍 Verifying detections locally..."
+    log "INFO" "🔍 Verifying detections locally after '${VERIFY_DETECTIONS_DELAY}' delay..."
+    sleep "${VERIFY_DETECTIONS_DELAY%s}"
 
     local detections=("$@") # Accept detections as parameters
     log "DEBUG" "🔍 Fetching logs from node-agent pod..."
@@ -544,6 +556,22 @@ verify_detections() {
     done
 }
 
+summarize_detections() {
+    log_destination="/tmp/${APP_NAME}-attack-detections-$(date +%s).log"
+    LOG_FILES+=("${log_destination}")
+    log "INFO" "🔍 Summarizing detections locally after '${VERIFY_DETECTIONS_DELAY}' delay..."
+
+    log "DEBUG" "📝 Logging new events after checkpoint '${CHECKPOINT}' and filtering by app name '${APP_NAME}'..."
+    sleep "${VERIFY_DETECTIONS_DELAY%s}"
+    kubectl logs --since-time "${CHECKPOINT}" -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}" | grep "${APP_NAME}" > "${log_destination}" || \
+        error_exit "Failed to fetch logs from node-agent pod. Exiting."
+
+    log "INFO" "📝 Full log saved to ‘${log_destination}’. Below is a summary."
+
+    jq -r '.BaseRuntimeMetadata.alertName' "${log_destination}" | sort | uniq -c | sort -nr || \
+        log "INFO" "⚠️ No detections found in the logs."
+}
+
 ##############################
 # Initiate Security Incidents
 ##############################
@@ -553,11 +581,12 @@ initiate_security_incidents() {
     kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'ls > /dev/null 2>&1' > /dev/null 2>&1 || \
         log "INFO" "⚠️ Failed to list directory contents. Exiting."
 
-    log "INFO" "🎯 Initiating 'Unexpected service account token access' & 'Workload uses Kubernetes API unexpectedly' ('Kubernetes Client Executed' locally) security incidents..."
+    log "INFO" "🎯 Initiating 'Unexpected service account token access' security incidents..."
+    log "INFO" "🎯 Initiating 'Workload uses Kubernetes API unexpectedly' security incidents..."
     kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'curl -k -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" https://kubernetes.default.svc/api/v1/namespaces/default/pods > /dev/null 2>&1' > /dev/null 2>&1 || \
         log "INFO" "⚠️ Failed to initiate 'Unexpected service account token access' & 'Workload uses Kubernetes API unexpectedly' security incidents. Exiting."
 
-    log "INFO" "🎯 Initiating 'Soft link created over sensitive file' ('Symlink Created Over Sensitive File' locally) security incident..."
+    log "INFO" "🎯 Initiating 'Soft link created over sensitive file' security incident..."
     kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'ln -sf /etc/passwd /tmp/asd > /dev/null 2>&1' > /dev/null 2>&1 || \
         log "INFO" "⚠️ Failed to initiate 'Soft link created over sensitive file' incident. Exiting."
 
@@ -618,19 +647,7 @@ execute_attack_script() {
     trap cleanup SIGINT
 
     if [[ "${VERIFY_DETECTIONS}" == true ]]; then
-        log_destination="/tmp/${APP_NAME}-attack-detections-$(date +%s).log"
-        LOG_FILES+=("${log_destination}")
-
-        log "DEBUG" "📝 Logging new events after checkpoint '${CHECKPOINT}' and filtering by app name '${APP_NAME}'..."
-        sleep "${VERIFY_DETECTIONS_DELAY%s}"
-        kubectl logs --since-time "${CHECKPOINT}" -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}" | grep "${APP_NAME}" > "${log_destination}" || \
-            error_exit "Failed to fetch logs from node-agent pod. Exiting."
-
-        log "INFO" "📝 Full log saved to ‘${log_destination}’. Below is a summary."
-
-        jq -r '.BaseRuntimeMetadata.alertName' "${log_destination}" | sort | uniq -c | sort -nr || \
-            log "INFO" "⚠️ No detections found in the logs."
-
+        summarize_detections
     fi
 }
 
@@ -649,8 +666,8 @@ case $MODE in
                 else
                     initiate_security_incidents
                     if [[ "${VERIFY_DETECTIONS}" == true ]]; then
-                        sleep "${VERIFY_DETECTIONS_DELAY%s}"
-                        verify_detections "Unexpected process launched" "Unexpected service account token access" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
+                        $1$2\
+$1     "Unexpected process launched" "Unexpected service account token access" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
                     fi
                 fi
             elif [[ "${choice}" == "n" || "${choice}" == "N" ]]; then
@@ -673,12 +690,12 @@ case $MODE in
             log "INFO" ""
             log "INFO" "✅ Command executed successfully. Waiting for detections..." || \
                 log "INFO" "⚠️ Failed to execute the command."
-            sleep "${VERIFY_DETECTIONS_DELAY%s}" 
 
-            log "INFO" "🔍 Checking for threat detections triggered by your command..."
-            log "INFO" "============================================================="
-            log "INFO" " Detection logged by the node-agent for the executed command"
-            log "INFO" "============================================================="
+            log "INFO" ""
+            log "INFO" "=============================================================================="
+            log "INFO" " 🔍 Checking for threat detections triggered by your command after '${VERIFY_DETECTIONS_DELAY}' delay"
+            log "INFO" "=============================================================================="
+            sleep "${VERIFY_DETECTIONS_DELAY%s}" 
             node_agent_logs=$(kubectl logs --since-time "${checkpoint}" -n "${KUBESCAPE_NAMESPACE}" "${NODE_AGENT_POD}" || \
                 error_exit "Failed to fetch logs from node-agent pod. Exiting.")
             # Check if logs are empty
@@ -709,7 +726,6 @@ case $MODE in
         else
             initiate_security_incidents
             if [[ "${VERIFY_DETECTIONS}" == true ]]; then
-                sleep "${VERIFY_DETECTIONS_DELAY%s}"
                 verify_detections "Unexpected process launched" "Unexpected service account token access" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
             fi
             log "INFO" "✅ Exiting after one-time incident initiation."
