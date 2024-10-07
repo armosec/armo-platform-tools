@@ -8,3 +8,19 @@ spec:
   resources:
     requests:
       storage: 1Gi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: armo-pv-check-pod
+spec:
+  containers:
+  - name: test-container
+    image: busybox
+    volumeMounts:
+    - mountPath: "/usr/test"
+      name: pvc-storage
+  volumes:
+  - name: pvc-storage
+    persistentVolumeClaim:
+      claimName: armo-pv-check-pvc
