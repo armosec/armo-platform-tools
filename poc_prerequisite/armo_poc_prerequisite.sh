@@ -31,7 +31,7 @@ check_network_accessibility() {
 
   trap "kubectl delete pod $POD_NAME" EXIT
 
-  OUTPUT=$(kubectl run $POD_NAME --rm -it --image=busybox@sha256:50aa4698fa6262977cff89181b2664b99d8a56dbca847bf62f2ef04854597cf8 --env="IP_LIST=$IP_LIST" --restart=Never -- sh -c '
+  OUTPUT=$(kubectl run $POD_NAME --rm -it --image=busybox --env="IP_LIST=$IP_LIST" --restart=Never -- sh -c '
     FAILED_ADDRESSES=""
     
     for ADDR in $IP_LIST; do
@@ -127,28 +127,30 @@ check_ebpf_support() {
 check_pv_support() {
   local OUTPUT
   local PVC_NAME="armo-pv-check-pvc"
+  local POD_NAME="armo-pv-check-pod"
+  local TIMEOUT=10 # Timeout in seconds to wait for PV provisioning
 
-  trap "kubectl delete pvc $PVC_NAME" EXIT
+  trap "kubectl delete pod $POD_NAME; kubectl delete pvc $PVC_NAME" EXIT
 
+  # Apply the PVC and Pod in the same file
   OUTPUT=$(kubectl apply -f "$PV_CHECK_PVC_FILE")
 
-  sleep 10
+  # Wait for PVC to be bound, timeout after $TIMEOUT seconds
+  for ((i=0; i<TIMEOUT; i++)); do
+    PVC_STATUS=$(kubectl get pvc $PVC_NAME -o jsonpath='{.status.phase}')
+    if [ "$PVC_STATUS" == "Bound" ]; then
+      echo "success"
+      kubectl delete pod $POD_NAME
+      kubectl delete pvc $PVC_NAME
+      trap - EXIT
+      return 0
+    fi
+    sleep 1
+  done
 
-  PVC_STATUS=$(kubectl get pvc $PVC_NAME -o jsonpath='{.status.phase}')
-
-  kubectl delete pvc $PVC_NAME
-
-  trap - EXIT
-
-  if [ "$PVC_STATUS" == "Bound" ]; then
-    echo "success"
-    return 0
-  else
-    echo "failed to bind PVC"
-    return 1
-  fi
+  echo "failed to bind PVC"
+  return 1
 }
-
 # Function to clean the previous line in the terminal
 clean_previous_line() {
   echo -n -e "\033[1A\033[K"
