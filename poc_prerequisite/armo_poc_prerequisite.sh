@@ -31,23 +31,36 @@ check_network_accessibility() {
 
   trap "kubectl delete pod $POD_NAME" EXIT
 
-  OUTPUT=$(kubectl run $POD_NAME --rm -it --image=busybox --env="IP_LIST=$IP_LIST" --restart=Never -- sh -c '
+  kubectl run $POD_NAME --image=busybox --env="IP_LIST=$IP_LIST" --restart=Never -- sh -c '
     FAILED_ADDRESSES=""
-    
+
     for ADDR in $IP_LIST; do
       if ! nc -z -w 5 $ADDR 443; then
         FAILED_ADDRESSES="$FAILED_ADDRESSES $ADDR"
       fi
     done
-    
+
     if [ -z "$FAILED_ADDRESSES" ]; then
       echo "success"
     else
       echo "failed to access:$FAILED_ADDRESSES"
     fi
-  ' 2>&1)
+  '
+
+  # Wait for the pod to complete by checking the pod's phase
+  while true; do
+    PHASE=$(kubectl get pod $POD_NAME -o jsonpath='{.status.phase}')
+    if [ "$PHASE" == "Succeeded" ] || [ "$PHASE" == "Failed" ]; then
+      break
+    fi
+    sleep 1
+  done
+
+  # Retrieve the output from the pod's logs
+  OUTPUT=$(kubectl logs $POD_NAME 2>&1)
 
   trap - EXIT
+  kubectl delete pod $POD_NAME
 
   if echo "$OUTPUT" | grep -q "failed to access"; then
     echo "$OUTPUT" | grep "failed to access"
@@ -87,21 +100,27 @@ check_ebpf_support() {
   local OUTPUT
   local UNSUPPORTED_NODES=""
   local DAEMONSET_NAME="armo-ebpf-check"
-
+  local TIMEOUT=30
+  
   trap "kubectl delete daemonset $DAEMONSET_NAME" EXIT
 
   OUTPUT=$(kubectl apply -f "$EBPF_DAEMONSET_FILE")
 
-  # Wait for all desired pods to be ready
+  # Wait for the DaemonSet to schedule the desired number of pods
+  echo "Waiting for the DaemonSet '$DAEMONSET_NAME' to schedule pods..."
   local desiredPods=0
-  local readyPods=0
-  read desiredPods readyPods < <(kubectl get daemonset $DAEMONSET_NAME -o jsonpath='{.status.desiredNumberScheduled} {.status.numberReady}')
-  while [ "$desiredPods" -ne "$readyPods" ]; do
-    echo "Wait for all pods of the DaemonSet '$DAEMONSET_NAME' to be ready. Ready pods: $readyPods/$desiredPods"
-    sleep 5
-    read desiredPods readyPods < <(kubectl get daemonset $DAEMONSET_NAME -o jsonpath='{.status.desiredNumberScheduled} {.status.numberReady}')
+  local scheduledPods=0
+  while [ "$desiredPods" -eq 0 ] || [ "$scheduledPods" -ne "$desiredPods" ]; do
+    read desiredPods scheduledPods < <(kubectl get daemonset $DAEMONSET_NAME -o jsonpath='{.status.desiredNumberScheduled} {.status.currentNumberScheduled}')
+    echo "Scheduled pods: $scheduledPods/$desiredPods"
+    sleep 1
   done
 
+  # Now wait for all scheduled pods to be ready
+  echo "Waiting for all pods of the DaemonSet '$DAEMONSET_NAME' to be ready..."
+  kubectl wait --for=condition=Ready --timeout=${TIMEOUT}s pod -l app=$DAEMONSET_NAME
+
+  # Fetch pod names
   PODS=$(kubectl get pods -l app=$DAEMONSET_NAME -o jsonpath='{.items[*].metadata.name}')
   
   for pod in $PODS; do
@@ -128,7 +147,7 @@ check_pv_support() {
   local OUTPUT
   local PVC_NAME="armo-pv-check-pvc"
   local POD_NAME="armo-pv-check-pod"
-  local TIMEOUT=10 # Timeout in seconds to wait for PV provisioning
+  local TIMEOUT=30 # Timeout in seconds to wait for PV provisioning
 
   trap "kubectl delete pod $POD_NAME; kubectl delete pvc $PVC_NAME" EXIT
 
