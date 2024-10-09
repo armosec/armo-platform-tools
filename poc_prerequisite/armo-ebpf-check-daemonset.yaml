@@ -17,16 +17,16 @@ spec:
       - name: armo-ebpf-check
         image: busybox
         volumeMounts:
-        - mountPath: /host
-          name: host
+        - mountPath: /boot
+          name: boot
         command:
         - /bin/sh
         - -c
         - |
           #!/bin/sh
-          if grep '^CONFIG_BPF=y$' /host/boot/config-$(uname -r) && \
-            grep '^CONFIG_BPF_SYSCALL=y$' /host/boot/config-$(uname -r) && \
-            grep '^CONFIG_DEBUG_INFO_BTF=y$' /host/boot/config-$(uname -r); then
+          if grep '^CONFIG_BPF=y$' /boot/config-$(uname -r) && \
+            grep '^CONFIG_BPF_SYSCALL=y$' /boot/config-$(uname -r) && \
+            grep '^CONFIG_DEBUG_INFO_BTF=y$' /boot/config-$(uname -r); then
             echo "eBPF is supported on $(hostname)"
           else
             echo "eBPF is not supported on $(hostname)"
@@ -42,7 +42,7 @@ spec:
           initialDelaySeconds: 1
           periodSeconds: 5
       volumes:
-      - name: host
+      - name: boot
         hostPath:
-          path: /
+          path: /boot
       restartPolicy: Always
