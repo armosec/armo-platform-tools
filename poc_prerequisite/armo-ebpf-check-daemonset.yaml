@@ -16,15 +16,20 @@ spec:
       containers:
       - name: armo-ebpf-check
         image: busybox
+        volumeMounts:
+        - mountPath: /host
+          name: host
         command:
         - /bin/sh
         - -c
         - |
           #!/bin/sh
-          if [ ! -r /sys/fs/bpf ]; then
-            echo "eBPF is not supported on $(hostname)"
-          else
+          if grep '^CONFIG_BPF=y$' /host/boot/config-$(uname -r) && \
+            grep '^CONFIG_BPF_SYSCALL=y$' /host/boot/config-$(uname -r) && \
+            grep '^CONFIG_DEBUG_INFO_BTF=y$' /host/boot/config-$(uname -r); then
             echo "eBPF is supported on $(hostname)"
+          else
+            echo "eBPF is not supported on $(hostname)"
           fi
           touch /tmp/ready
           sleep 3600
@@ -36,4 +41,8 @@ spec:
             - test -f /tmp/ready
           initialDelaySeconds: 1
           periodSeconds: 5
+      volumes:
+      - name: host
+        hostPath:
+          path: /
       restartPolicy: Always
