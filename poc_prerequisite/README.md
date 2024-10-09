@@ -18,18 +18,12 @@ This script is designed to validate the prerequisites for the ARMO Security Proo
 
 1. Clone this repository and navigate to the directory:
    ```bash
-   git clone <repository_url>
-   cd <repository_directory>
-   ```
-
-2. Ensure the `ip_list.txt` file is present in the directory. This file should contain the IP addresses to be checked, one per line.
-
-3. Make the script executable:
-   ```bash
+   git clone https://github.com/armosec/armo-platform-tools.git
+   cd armo-platform-tools/poc_prerequisite/
    chmod +x armo_poc_prerequisite.sh
    ```
 
-4. Run the script:
+2. Run the script:
    ```bash
    ./armo_poc_prerequisite.sh
    ```
