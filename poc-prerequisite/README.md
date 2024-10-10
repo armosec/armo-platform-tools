@@ -19,13 +19,13 @@ This script is designed to validate the prerequisites for the ARMO Security Proo
 1. Clone this repository and navigate to the directory:
    ```bash
    git clone https://github.com/armosec/armo-platform-tools.git
-   cd armo-platform-tools/poc_prerequisite/
-   chmod +x armo_poc_prerequisite.sh
+   cd armo-platform-tools/poc-prerequisite/
+   chmod +x armo-poc-prerequisite.sh
    ```
 
 2. Run the script:
    ```bash
-   ./armo_poc_prerequisite.sh
+   ./armo-poc-prerequisite.sh
    ```
 
 ## Script Details
