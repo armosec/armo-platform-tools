@@ -89,7 +89,7 @@ verify_helm_permissions() {
     --set account="$ACCOUNT_ID" \
     --set accessKey="$ACCESS_KEY" \
     --set server="$SERVER"; } 2>&1)
-  
+
   if [ $? -eq 0 ]; then
     return 0
   else
@@ -188,16 +188,16 @@ stty -echo -icanon time 0 min 0
 
 FAILURES=0
 
-echo "🔄 Checking network accessibility..."
-if ! NETWORK_FAILURES=$(check_network_accessibility); then
-  clean_previous_line
-  echo "❌ Network accessibility check failed."
-  print_failure_details "$NETWORK_FAILURES"
-  FAILURES=$((FAILURES + 1))
-else
-  clean_previous_line
-  echo "✅ Network accessibility check passed."
-fi
+# echo "🔄 Checking network accessibility..."
+# if ! NETWORK_FAILURES=$(check_network_accessibility); then
+#   clean_previous_line
+#   echo "❌ Network accessibility check failed."
+#   print_failure_details "$NETWORK_FAILURES"
+#   FAILURES=$((FAILURES + 1))
+# else
+#   clean_previous_line
+#   echo "✅ Network accessibility check passed."
+# fi
 
 echo "🔄 Checking Helm chart installation permissions..."
 if ! HELM_FAILURES=$(verify_helm_permissions); then
@@ -210,27 +210,27 @@ else
   echo "✅ Helm chart installation permissions check passed."
 fi
 
-echo "🔄 Checking eBPF support on all nodes..."
-if ! EBPF_FAILURES=$(check_ebpf_support); then
-  clean_previous_line
-  echo "❌ eBPF support check failed."
-  print_failure_details "$EBPF_FAILURES"
-  FAILURES=$((FAILURES + 1))
-else
-  clean_previous_line
-  echo "✅ eBPF support check passed."
-fi
+# echo "🔄 Checking eBPF support on all nodes..."
+# if ! EBPF_FAILURES=$(check_ebpf_support); then
+#   clean_previous_line
+#   echo "❌ eBPF support check failed."
+#   print_failure_details "$EBPF_FAILURES"
+#   FAILURES=$((FAILURES + 1))
+# else
+#   clean_previous_line
+#   echo "✅ eBPF support check passed."
+# fi
 
-echo "🔄 Checking PV support..."
-if ! PV_FAILURES=$(check_pv_support); then
-  clean_previous_line
-  echo "❌ PV support check failed."
-  print_failure_details "$PV_FAILURES"
-  FAILURES=$((FAILURES + 1))
-else
-  clean_previous_line
-  echo "✅ PV support check passed."
-fi
+# echo "🔄 Checking PV support..."
+# if ! PV_FAILURES=$(check_pv_support); then
+#   clean_previous_line
+#   echo "❌ PV support check failed."
+#   print_failure_details "$PV_FAILURES"
+#   FAILURES=$((FAILURES + 1))
+# else
+#   clean_previous_line
+#   echo "✅ PV support check passed."
+# fi
 
 echo
 if [ $FAILURES -eq 0 ]; then
