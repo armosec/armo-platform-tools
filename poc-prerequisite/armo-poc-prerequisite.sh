@@ -89,7 +89,7 @@ verify_helm_permissions() {
     --set account="$ACCOUNT_ID" \
     --set accessKey="$ACCESS_KEY" \
     --set server="$SERVER"; } 2>&1)
-    
+  
   if [ $? -eq 0 ]; then
     return 0
   else
