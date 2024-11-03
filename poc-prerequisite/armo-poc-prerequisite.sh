@@ -81,11 +81,14 @@ verify_helm_permissions() {
   CLUSTER_NAME=$(kubectl config current-context)
   local HELM_OUTPUT
   
-  HELM_OUTPUT=$(helm upgrade --install --dry-run "$RELEASE_NAME" "$CHART_NAME" -n "$NAMESPACE" --create-namespace \
+  HELM_OUTPUT=$( { helm repo add "$RELEASE_NAME" "$HELM_REPO" && \
+    helm repo update && \
+    helm upgrade --install --dry-run "$RELEASE_NAME" "$CHART_NAME" && \
+    -n "$NAMESPACE" --create-namespace \
     --set clusterName="$CLUSTER_NAME" \
     --set account="$ACCOUNT_ID" \
     --set accessKey="$ACCESS_KEY" \
-    --set server="$SERVER" 2>&1)
+    --set server="$SERVER"; } 2>&1)
   
   if [ $? -eq 0 ]; then
     return 0
