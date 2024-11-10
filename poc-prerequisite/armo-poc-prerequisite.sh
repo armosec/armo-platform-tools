@@ -83,6 +83,7 @@ verify_helm_permissions() {
   
   HELM_OUTPUT=$( { helm repo add "$RELEASE_NAME" "$HELM_REPO" && \
     helm repo update && \
+
     helm upgrade --install --dry-run "$RELEASE_NAME" "$CHART_NAME" && \
     -n "$NAMESPACE" --create-namespace \
     --set clusterName="$CLUSTER_NAME" \
