@@ -147,7 +147,6 @@ check_kubescape_components() {
         operator
         otel-collector
         synchronizer
-        kollector
     )
     for component in "${components[@]}"; do
         kubectl wait -n "${KUBESCAPE_NAMESPACE}" --for=condition=ready pod -l app.kubernetes.io/component="${component}" \
@@ -666,8 +665,8 @@ case $MODE in
                 else
                     initiate_security_incidents
                     if [[ "${VERIFY_DETECTIONS}" == true ]]; then
-                        $1$2\
-$1     "Unexpected process launched" "Unexpected service account token access" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
+                        sleep "${VERIFY_DETECTIONS_DELAY%s}"
+                        verify_detections "Unexpected process launched" "Unexpected Service Account Token Access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
                     fi
                 fi
             elif [[ "${choice}" == "n" || "${choice}" == "N" ]]; then
@@ -726,7 +725,7 @@ $1     "Unexpected process launched" "Unexpected service account token access" "
         else
             initiate_security_incidents
             if [[ "${VERIFY_DETECTIONS}" == true ]]; then
-                verify_detections "Unexpected process launched" "Unexpected service account token access" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
+                verify_detections "Unexpected process launched" "Unexpected Service Account Token Access" "Kubernetes Client Executed" "Symlink Created Over Sensitive File" "Environment Variables from procfs" "Crypto mining domain communication"
             fi
             log "INFO" "✅ Exiting after one-time incident initiation."
         fi
