@@ -586,7 +586,7 @@ initiate_security_incidents() {
         log "INFO" "⚠️ Failed to initiate 'Unexpected service account token access' & 'Workload uses Kubernetes API unexpectedly' security incidents. Exiting."
 
     log "INFO" "🎯 Initiating 'Soft link created over sensitive file' security incident..."
-    kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'ln -sf /etc/passwd /tmp/asd > /dev/null 2>&1' > /dev/null 2>&1 || \
+    kubectl exec -n "${NAMESPACE}" "${APP_POD_NAME}" -- sh -c 'ln -sf /etc/shadow /tmp/asd > /dev/null 2>&1' > /dev/null 2>&1 || \
         log "INFO" "⚠️ Failed to initiate 'Soft link created over sensitive file' incident. Exiting."
 
     log "INFO" "🎯 Initiating 'Environment Variables Read from procfs' security incident..."
