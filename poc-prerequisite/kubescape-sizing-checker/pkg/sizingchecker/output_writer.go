@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,13 +28,13 @@ func printHelmInstructions() {
 }
 
 // Helper function to print the sizing report generation success message for local disk
-func printDiskSuccess() {
+func printDiskSuccess(reportPath, valuesPath string) {
 	printSeparator()
 	fmt.Println("✅ Sizing report generated locally!")
-	fmt.Println("   • sizing-report.html (HTML report)")
-	fmt.Println("   • recommended-values.yaml (Helm values file)")
+	fmt.Println("   •", reportPath, "(HTML report)")
+	fmt.Println("   •", valuesPath, "(Helm values file)")
 	fmt.Println("")
-	fmt.Println("📋 Open ./sizing-report.html in your browser for details.")
+	fmt.Println("📋 Open", reportPath, "in your browser for details.")
 	printHelmInstructions()
 	printSeparator()
 }
@@ -57,17 +58,19 @@ func printConfigMapSuccess() {
 // writeToDisk writes the HTML and YAML content to local disk and prints instructions.
 func writeToDisk(htmlContent, yamlContent string) {
 	// Write the HTML report
-	if err := os.WriteFile("sizing-report.html", []byte(htmlContent), 0644); err != nil {
+	reportPath := filepath.Join(os.TempDir(), "sizing-report.html")
+	if err := os.WriteFile(reportPath, []byte(htmlContent), 0644); err != nil {
 		log.Fatalf("Could not write HTML report: %v", err)
 	}
 
 	// Write the recommended values YAML
-	if err := os.WriteFile("recommended-values.yaml", []byte(yamlContent), 0644); err != nil {
+	valuesPath := filepath.Join(os.TempDir(), "recommended-values.yaml")
+	if err := os.WriteFile(valuesPath, []byte(yamlContent), 0644); err != nil {
 		log.Fatalf("Could not write recommended-values.yaml: %v", err)
 	}
 
 	// Print success messages and instructions for local disk
-	printDiskSuccess()
+	printDiskSuccess(reportPath, valuesPath)
 }
 
 // writeToConfigMap writes the HTML and YAML content to a Kubernetes ConfigMap and prints instructions.
