@@ -22,20 +22,10 @@
     # ---------------------------------------
     # 2) Final minimal image
     # ---------------------------------------
-    FROM alpine:3.18
+    FROM scratch
     
-    RUN apk --no-cache add ca-certificates
+    COPY --from=builder /app/sizing-checker /sizing-checker
+    USER 1000:1000
+    WORKDIR /
     
-    # Add a non-root user (optional)
-    RUN adduser -D -g '' appuser
-    
-    WORKDIR /home/appuser
-    
-    # Copy the binary from the builder stage
-    COPY --from=builder /app/sizing-checker ./sizing-checker
-    
-    # Use the non-root user
-    USER appuser
-    
-    ENTRYPOINT ["./sizing-checker"]
-    
+    ENTRYPOINT ["/sizing-checker"]

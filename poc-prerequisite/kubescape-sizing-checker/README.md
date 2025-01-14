@@ -6,8 +6,7 @@ Kubescape Sizing Checker analyzes your Kubernetes cluster's resources and genera
 
 ## Prerequisites
 
-- **Kubernetes Cluster** with `kubectl` configured.
-- **Permissions** to create ServiceAccounts, ClusterRoles, ClusterRoleBindings, and Jobs.
+- **Kubeconfig** configured for access to the Kubernetes cluster where you plan to deploy Armo.
 
 ## Run the Check
 
@@ -23,12 +22,16 @@ There are two ways to run the check:
 
 ### Option 2 - Deploy the Sizing Checker Job
 
+#### Prerequisites
+
+- **Permissions** to create ServiceAccounts, ClusterRoles, ClusterRoleBindings, and Jobs.
+
 1. **Deploy the Kubernetes manifest:**
 
    Apply the Kubernetes manifest to set up the necessary resources:
 
    ```sh
-   kubectl apply -f kubescape-sizing-checker-job.yaml
+   kubectl apply -f k8s-manifest.yaml
    ```
 
 2. **Verify Job Completion:**
