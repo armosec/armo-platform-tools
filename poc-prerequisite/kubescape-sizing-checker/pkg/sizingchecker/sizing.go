@@ -1,11 +1,11 @@
-package main
+package sizingchecker
 
 import (
 	"context"
 )
 
-// runSizingChecker is the real driver for your sizing logic.
-func runSizingChecker() {
+// RunSizingChecker is the real driver for your sizing logic.
+func RunSizingChecker() {
 	// 1) Build Kubernetes client (detect if running in-cluster or local)
 	inCluster, config, clientset := buildKubeClient()
 

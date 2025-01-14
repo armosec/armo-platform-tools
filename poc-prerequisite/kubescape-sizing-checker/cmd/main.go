@@ -1,16 +1,9 @@
 package main
 
-type Options struct {
-	Enabled bool
-}
-
-func Run(opts Options) {
-	runSizingChecker()
-}
+import (
+	"local/kubescape-sizing-checker/pkg/sizingchecker"
+)
 
 func main() {
-	opts := Options{
-		Enabled: true,
-	}
-	Run(opts)
+	sizingchecker.RunSizingChecker()
 }
