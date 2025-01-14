@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8"/>
+    <title>Kubescape Sizing Checker: Sizing Report</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 25px;
+      }
+      h1, h2, h3 {
+        color: #2e3f6e;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+      }
+      ul li {
+        margin-bottom: 5px;
+      }
+      code {
+        background-color: #f4f4f4;
+        padding: 3px 5px;
+        border-radius: 4px;
+      }
+    </style>
+</head>
+<body>
+    <h1>Kubescape Sizing Checker: Sizing Report</h1>
+
+    <section>
+      <h2>Cluster Summary</h2>
+      <p>Below is a summary of the cluster resources that were used to calculate recommended allocations:</p>
+      <ul>
+          <li><strong>Total Resources in the Cluster:</strong> {{.TotalResources}}</li>
+          <li><strong>Maximum Node CPU Capacity (m):</strong> {{.MaxNodeCPUCapacity}}</li>
+          <li><strong>Maximum Node Memory (Mi):</strong> {{.MaxNodeMemoryMB}}</li>
+          <li><strong>Largest Container Image (MB):</strong> {{.LargestContainerImageMB}}</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Recommended Adjustments</h2>
+      <p>
+        The following recommended resource settings were calculated based on the Kubescape sizing guide.
+        Only values that exceed the default settings are shown below (and will be added to 
+        <code>recommended-values.yaml</code>). If nothing appears here, then no adjustments 
+        are necessary.
+      </p>
+
+      {{/* Loop over each component in FinalResourceAllocations */}}
+      {{ range $component, $finalsMap := .FinalResourceAllocations }}
+        {{ $defaultsMap := index $.DefaultResourceAllocations $component }}
+
+        {{/* Determine if this component actually changed vs. the defaults */}}
+        {{ $noChanges := true }}
+        {{ range $resKey, $finalVal := $finalsMap }}
+          {{ $defaultVal := index $defaultsMap $resKey }}
+          {{ if ne $defaultVal $finalVal }}
+            {{ $noChanges = false }}
+          {{ end }}
+        {{ end }}
+
+        {{/* If there are changes, display them */}}
+        {{ if not $noChanges }}
+          <h3>{{ $component }}</h3>
+          <ul>
+            {{ range $resKey, $finalVal := $finalsMap }}
+              {{ $defaultVal := index $defaultsMap $resKey }}
+              {{ if ne $defaultVal $finalVal }}
+                <li><strong>{{ $resKey }}:</strong> {{ $finalVal }}</li>
+              {{ end }}
+            {{ end }}
+          </ul>
+        {{ end }}
+      {{ end }}
+    </section>
+
+    <section>
+      <h2>How to Apply These Adjustments</h2>
+      <p>
+        A <code>recommended-values.yaml</code> file has been generated (or can be retrieved at 
+        <code>/recommended-values.yaml</code> if running in-cluster). 
+        To apply these recommended resources in your Helm release, run:
+      </p>
+      <pre>
+helm upgrade --install my-release armo/kubescape --values recommended-values.yaml
+      </pre>
+      <p>
+        This ensures Kubescape is right-sized for your environment without altering default values 
+        that are already sufficient.
+      </p>
+    </section>
+</body>
+</html>

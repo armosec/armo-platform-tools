@@ -13,9 +13,15 @@ metadata:
   labels:
     app: kubescape-sizing-checker
 rules:
-  - apiGroups: [""] # core API group
+  # Existing permissions for nodes, pods, and services
+  - apiGroups: [""] # Core API group
     resources: ["nodes", "pods", "services"]
     verbs: ["get", "list", "watch"]
+  
+  # New permissions for ConfigMaps
+  - apiGroups: [""] # Core API group
+    resources: ["configmaps"]
+    verbs: ["create", "update", "get"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -34,30 +40,25 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
   name: kubescape-sizing-checker
   labels:
     app: kubescape-sizing-checker
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: kubescape-sizing-checker
   template:
     metadata:
       labels:
         app: kubescape-sizing-checker
     spec:
+      restartPolicy: Never
       serviceAccountName: kubescape-sizing-checker
       containers:
         - name: sizing-checker
           image: "quay.io/danvid/kubescape-sizing-checker"
           imagePullPolicy: Always
-          ports:
-            - containerPort: 8080
-              name: http
+          # Removed stdin and tty as they are not needed for a Job
           resources:
             requests:
               memory: "256Mi"
@@ -65,18 +66,3 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: kubescape-sizing-checker
-  labels:
-    app: kubescape-sizing-checker
-spec:
-  selector:
-    app: kubescape-sizing-checker
-  ports:
-    - name: http
-      port: 8080
-      targetPort: 8080
-  type: ClusterIP
