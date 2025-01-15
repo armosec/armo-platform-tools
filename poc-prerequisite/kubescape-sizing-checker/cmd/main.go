@@ -1,7 +1,7 @@
 package main
 
 import (
-	"local/kubescape-sizing-checker/pkg/sizingchecker"
+	"github.com/armosec/armo-platform-tools/poc-prerequisite/kubescape-sizing-checker/pkg/sizingchecker"
 )
 
 func main() {
