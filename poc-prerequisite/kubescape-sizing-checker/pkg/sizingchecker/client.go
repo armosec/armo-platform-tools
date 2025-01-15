@@ -5,18 +5,14 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func buildKubeClient() (bool, *rest.Config, *kubernetes.Clientset) {
+func buildKubeClient() (bool, *kubernetes.Clientset) {
 	inCluster := true
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -26,58 +22,72 @@ func buildKubeClient() (bool, *rest.Config, *kubernetes.Clientset) {
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
 			log.Printf("Could not load in-cluster or local kubeconfig: %v", err)
-			return inCluster, nil, nil
+			return inCluster, nil
 		}
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		log.Printf("Failed to create Kubernetes clientset: %v", err)
-		return inCluster, nil, nil
+		return inCluster, nil
 	}
 
-	return inCluster, config, clientset
+	return inCluster, clientset
 }
 
-func getTotalResources(ctx context.Context, config *rest.Config) int {
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		log.Printf("Error creating dynamic client: %v", err)
-		return 0
-	}
-	discoClient, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		log.Printf("Error creating discovery client: %v", err)
+func getTotalResources(ctx context.Context, clientset *kubernetes.Clientset) int {
+	if clientset == nil {
+		log.Println("clientset is nil")
 		return 0
 	}
 
-	resourceLists, err := discoClient.ServerPreferredResources()
-	if err != nil {
-		log.Printf("Error listing server resources: %v", err)
-		return 0
+	resourceCounters := []func(context.Context, *kubernetes.Clientset) (int, error){
+		func(c context.Context, cs *kubernetes.Clientset) (int, error) {
+			list, err := cs.CoreV1().Pods("").List(c, metav1.ListOptions{})
+			return len(list.Items), err
+		},
+		func(c context.Context, cs *kubernetes.Clientset) (int, error) {
+			list, err := cs.CoreV1().Services("").List(c, metav1.ListOptions{})
+			return len(list.Items), err
+		},
+		func(c context.Context, cs *kubernetes.Clientset) (int, error) {
+			list, err := cs.AppsV1().Deployments("").List(c, metav1.ListOptions{})
+			return len(list.Items), err
+		},
+		func(c context.Context, cs *kubernetes.Clientset) (int, error) {
+			list, err := cs.AppsV1().ReplicaSets("").List(c, metav1.ListOptions{})
+			return len(list.Items), err
+		},
+		func(c context.Context, cs *kubernetes.Clientset) (int, error) {
+			list, err := cs.AppsV1().StatefulSets("").List(c, metav1.ListOptions{})
+			return len(list.Items), err
+		},
+		func(c context.Context, cs *kubernetes.Clientset) (int, error) {
+			list, err := cs.AppsV1().DaemonSets("").List(c, metav1.ListOptions{})
+			return len(list.Items), err
+		},
+		func(c context.Context, cs *kubernetes.Clientset) (int, error) {
+			list, err := cs.CoreV1().ReplicationControllers("").List(c, metav1.ListOptions{})
+			return len(list.Items), err
+		},
+		func(c context.Context, cs *kubernetes.Clientset) (int, error) {
+			list, err := cs.BatchV1().Jobs("").List(c, metav1.ListOptions{})
+			return len(list.Items), err
+		},
+		func(c context.Context, cs *kubernetes.Clientset) (int, error) {
+			list, err := cs.BatchV1().CronJobs("").List(c, metav1.ListOptions{})
+			return len(list.Items), err
+		},
 	}
 
-	total := 0
-	for _, rl := range resourceLists {
-		gv, err := schema.ParseGroupVersion(rl.GroupVersion)
+	var total int
+	for _, counter := range resourceCounters {
+		n, err := counter(ctx, clientset)
 		if err != nil {
+			log.Printf("Error listing resources: %v", err)
 			continue
 		}
-		for _, r := range rl.APIResources {
-			if strings.Contains(r.Name, "/") {
-				continue
-			}
-			if !sliceContains(r.Verbs, "list") {
-				continue
-			}
-			gvr := schema.GroupVersionResource{Group: gv.Group, Version: gv.Version, Resource: r.Name}
-			list, err := dynamicClient.Resource(gvr).List(ctx, metav1.ListOptions{})
-			if err != nil {
-				log.Printf("failed to list %s: %v", gvr, err)
-				continue
-			}
-			total += len(list.Items)
-		}
+		total += n
 	}
 	return total
 }

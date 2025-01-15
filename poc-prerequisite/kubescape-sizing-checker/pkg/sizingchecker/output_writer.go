@@ -21,10 +21,7 @@ func printSeparator() {
 
 // Helper function to print the Helm upgrade command instructions
 func printHelmInstructions() {
-	fmt.Println("🚀 Use the following command to apply recommended resources:")
-	fmt.Println("    helm upgrade --install kubescape kubescape/kubescape-operator \\")
-	fmt.Println("     --namespace kubescape --create-namespace \\")
-	fmt.Println("     --values recommended-values.yaml [other parameters or value files here]")
+	fmt.Println("🚀 Use the generated recommended-values.yaml to optimize Kubescape for your cluster.")
 }
 
 // Helper function to print the sizing report generation success message for local disk
