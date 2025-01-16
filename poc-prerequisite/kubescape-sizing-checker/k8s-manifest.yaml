@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubescape-sizing-checker
+  labels:
+    app: kubescape-sizing-checker
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubescape-sizing-checker
+  labels:
+    app: kubescape-sizing-checker
+rules:
+  - apiGroups: [""]  
+    resources: ["pods", "services", "replicationcontrollers", "nodes"]
+    verbs: ["list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
+    verbs: ["list"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["list"]
+
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create", "update", "get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubescape-sizing-checker
+  labels:
+    app: kubescape-sizing-checker
+subjects:
+  - kind: ServiceAccount
+    name: kubescape-sizing-checker
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: kubescape-sizing-checker
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kubescape-sizing-checker
+  labels:
+    app: kubescape-sizing-checker
+spec:
+  template:
+    metadata:
+      labels:
+        app: kubescape-sizing-checker
+    spec:
+      restartPolicy: Never
+      serviceAccountName: kubescape-sizing-checker
+      containers:
+        - name: sizing-checker
+          image: "quay.io/danvid/kubescape-sizing-checker"
+          imagePullPolicy: Always
+          # Removed stdin and tty as they are not needed for a Job
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

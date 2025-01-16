@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8"/>
+    <title>Kubescape Sizing Checker: Sizing Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f9f9f9;
+        }
+        .container {
+            background: #fff;
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 800px;
+        }
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 2px solid #eaeaea;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        header .title-section {
+            text-align: left;
+        }
+        header h1 {
+            font-size: 24px;
+            color: #2e3f6e;
+            margin: 0;
+        }
+        header h2 {
+            font-size: 18px;
+            color: #000;
+            margin: 5px 0 0 0;
+        }
+        header img {
+            max-width: 120px;
+            height: auto;
+        }
+        h2 {
+            font-size: 18px;
+            color: #2e3f6e;
+            margin-top: 20px;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        ul li {
+            margin: 5px 0;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 3px 5px;
+            border-radius: 4px;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: left;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+        section {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="title-section">
+                <h1>Kubescape Sizing Report</h1>
+            </div>
+            <img src="https://raw.githubusercontent.com/kubescape/kubescape/master/core/pkg/resultshandling/printer/v2/pdf/logo.png" alt="Kubescape Logo"/>
+        </header>
+
+        <section>
+            <h2>Summary</h2>
+            <ul>
+                <li><strong>Total Resources:</strong> {{.TotalResources}}</li>
+                <li><strong>Max Node CPU:</strong> {{.MaxNodeCPUCapacity}} m</li>
+                <li><strong>Max Node Memory:</strong> {{.MaxNodeMemoryMB}} Mi</li>
+                <li><strong>Largest Image:</strong> {{.LargestContainerImageMB}} MB</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>Recommended Adjustments</h2>
+            <p>Changes exceeding defaults are listed below. If empty, no adjustments are needed.</p>
+            {{ range $component, $finalsMap := .FinalResourceAllocations }}
+                {{ $defaultsMap := index $.DefaultResourceAllocations $component }}
+                {{ $noChanges := true }}
+                {{ range $resKey, $finalVal := $finalsMap }}
+                    {{ $defaultVal := index $defaultsMap $resKey }}
+                    {{ if ne $defaultVal $finalVal }}
+                        {{ $noChanges = false }}
+                    {{ end }}
+                {{ end }}
+                {{ if not $noChanges }}
+                    <h3>{{ $component }}</h3>
+                    <ul>
+                        {{ range $resKey, $finalVal := $finalsMap }}
+                            {{ $defaultVal := index $defaultsMap $resKey }}
+                            {{ if ne $defaultVal $finalVal }}
+                                <li><strong>{{ $resKey }}:</strong> {{ $finalVal }}</li>
+                            {{ end }}
+                        {{ end }}
+                    </ul>
+                {{ end }}
+            {{ end }}
+        </section>
+
+        <section>
+            <h2>Apply Adjustments</h2>
+            <p>Use the generated <a href="./recommended-values.yaml" target="_blank">recommended-values.yaml</a> to optimize Kubescape for your cluster.</p>
+        </section>
+    </div>
+</body>
+</html>
