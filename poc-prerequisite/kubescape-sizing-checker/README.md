@@ -20,7 +20,7 @@ There are two ways to run the check:
    go run .
    ```
 
-### Option 2 - Deploy the Sizing Checker Job
+### Option 2 - In-cluster Run
 
 #### Prerequisites
 
@@ -82,3 +82,38 @@ If you want to review the sizing report, open the HTML file:
     ```sh
     start sizing-report.html
     ```
+
+## Output
+### Local Run
+    ```------------------------------------------------------------
+    ✅ Sizing report generated locally!
+    • /tmp/sizing-report.html (HTML report)
+    • /tmp/recommended-values.yaml (Helm values file)
+
+    📋 Open /tmp/sizing-report.html in your browser for details.
+    🚀 Use the generated recommended-values.yaml to optimize Kubescape for your cluster.
+    ------------------------------------------------------------
+    ```
+
+
+### In-cluster Run
+    ```sh
+    kubectl logs job/kubescape-sizing-checker
+    ```
+    ```------------------------------------------------------------
+    ✅ Sizing report stored in Kubernetes ConfigMap!
+    • ConfigMap Name: sizing-report
+    • Namespace: default
+    ------------------------------------------------------------
+
+    ⬇️ To export the report and recommended values to local files, run the following commands:
+        kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data "sizing-report.html" }}' > sizing-report.html
+        kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data "recommended-values.yaml" }}' > recommended-values.yaml
+
+    📋 Open sizing-report.html in your browser for details.
+    🚀 Use the generated recommended-values.yaml to optimize Kubescape for your cluster.
+    ------------------------------------------------------------
+    ```
+
+### Report example
+![alt text](Report-example.png)
