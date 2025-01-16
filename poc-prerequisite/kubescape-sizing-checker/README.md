@@ -39,7 +39,7 @@ There are two ways to run the check:
    Check the status and logs of the Job:
 
    ```sh
-   kubectl get jobs kubescape-sizing-checker
+   kubectl wait --for=condition=complete job/kubescape-sizing-checker --timeout=60s
    kubectl logs job/kubescape-sizing-checker
    ```
 
@@ -48,8 +48,8 @@ There are two ways to run the check:
    Retrieve the `recommended-values.yaml` and `sizing-report.html` from the ConfigMap:
 
    ```sh
-   kubectl get configmap sizing-report -n kubescape -o go-template='{{ index .data "recommended-values.yaml" }}' > recommended-values.yaml
-   kubectl get configmap sizing-report -n kubescape -o go-template='{{ index .data "sizing-report.html" }}' > sizing-report.html
+   kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data "recommended-values.yaml" }}' > recommended-values.yaml
+   kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data "sizing-report.html" }}' > sizing-report.html
    ```
 
 ## Usage
@@ -61,30 +61,24 @@ Use Helm to deploy Kubescape using the recommended values:
 ```sh
 helm upgrade --install kubescape kubescape/kubescape-operator \
   --namespace kubescape --create-namespace \
-  --values recommended-values.yaml [other parameters or value files here]
+  --values recommended-values.yaml [other parameters]
 ```
 
-### (Optional) View the Sizing Report
+### View the Sizing Report
 
-If you want to review the sizing report, export and open the HTML file:
+If you want to review the sizing report, open the HTML file:
 
-1. **Export the HTML Report:**
+**Open in Browser:**
 
-   ```sh
-   kubectl get configmap sizing-report -n kubescape -o go-template='{{ index .data "sizing-report.html" }}' > sizing-report.html
-   ```
-
-2. **Open in Browser:**
-
-   - **macOS:**
-     ```sh
-     open sizing-report.html
-     ```
-   - **Linux:**
-     ```sh
-     xdg-open sizing-report.html
-     ```
-   - **Windows (Git Bash):**
-     ```sh
-     start sizing-report.html
-     ```
+- **macOS:**
+    ```sh
+    open sizing-report.html
+    ```
+- **Linux:**
+    ```sh
+    xdg-open sizing-report.html
+    ```
+- **Windows (Git Bash):**
+    ```sh
+    start sizing-report.html
+    ```

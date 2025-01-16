@@ -81,6 +81,4 @@ type reportData struct {
 
 	DefaultResourceAllocations map[string]map[string]string
 	FinalResourceAllocations   map[string]map[string]string
-
-	ValuesPath string
 }

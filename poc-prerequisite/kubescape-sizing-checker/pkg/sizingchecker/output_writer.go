@@ -41,13 +41,14 @@ func printConfigMapSuccess() {
 	printSeparator()
 	fmt.Println("✅ Sizing report stored in Kubernetes ConfigMap!")
 	fmt.Println("   • ConfigMap Name: sizing-report")
-	fmt.Println("   • Namespace: kubescape")
+	fmt.Println("   • Namespace: default")
 	printSeparator()
 	fmt.Println("")
-	fmt.Println("📋 To export the report and recommended values to local files, run the following commands:")
-	fmt.Println("    kubectl get configmap sizing-report -n kubescape -o go-template='{{ index .data \"sizing-report.html\" }}' > sizing-report.html")
-	fmt.Println("    kubectl get configmap sizing-report -n kubescape -o go-template='{{ index .data \"recommended-values.yaml\" }}' > recommended-values.yaml")
+	fmt.Println("⬇️  To export the report and recommended values to local files, run the following commands:")
+	fmt.Println("    kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data \"sizing-report.html\" }}' > sizing-report.html")
+	fmt.Println("    kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data \"recommended-values.yaml\" }}' > recommended-values.yaml")
 	fmt.Println("")
+	fmt.Println("📋 Open sizing-report.html in your browser for details.")
 	printHelmInstructions()
 	printSeparator()
 }
@@ -85,8 +86,8 @@ func writeToConfigMap(htmlContent, yamlContent string) {
 	}
 
 	// Define the ConfigMap name and namespace
-	configMapName := "sizing-report"
-	namespace := "kubescape"
+	configMapName := "kubescape-sizing-report"
+	namespace := "default"
 
 	// Prepare the ConfigMap data
 	configMap := &corev1.ConfigMap{
@@ -103,10 +104,11 @@ func writeToConfigMap(htmlContent, yamlContent string) {
 	// Attempt to create the ConfigMap
 	_, err = clientset.CoreV1().ConfigMaps(namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 	if err != nil {
+		log.Printf("Failed to create ConfigMap: %v", err)
 		// If the ConfigMap already exists, attempt to update it
 		_, err = clientset.CoreV1().ConfigMaps(namespace).Update(context.Background(), configMap, metav1.UpdateOptions{})
 		if err != nil {
-			log.Fatalf("Failed to create or update ConfigMap: %v", err)
+			log.Fatalf("Failed to update ConfigMap: %v", err)
 		}
 	}
 

@@ -2,8 +2,6 @@ package sizingchecker
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 )
 
 // RunSizingChecker is the real driver for your sizing logic.
@@ -41,7 +39,6 @@ func RunSizingChecker() {
 	}
 
 	// 5) Put it all into reportData
-	valuesPath := filepath.Join(os.TempDir(), "recommended-values.yaml")
 	data := &reportData{
 		TotalResources:          totalResources,
 		MaxNodeCPUCapacity:      maxCPU,
@@ -50,8 +47,6 @@ func RunSizingChecker() {
 
 		DefaultResourceAllocations: defaultResourceAllocations,
 		FinalResourceAllocations:   finalResourceAllocations,
-
-		ValuesPath: valuesPath,
 	}
 
 	// 6) Generate HTML report and values.yaml

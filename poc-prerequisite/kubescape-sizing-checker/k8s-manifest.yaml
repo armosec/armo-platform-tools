@@ -13,13 +13,17 @@ metadata:
   labels:
     app: kubescape-sizing-checker
 rules:
-  # Existing permissions for nodes, pods, and services
-  - apiGroups: [""] # Core API group
-    resources: ["nodes", "pods", "services"]
-    verbs: ["get", "list", "watch"]
-  
-  # New permissions for ConfigMaps
-  - apiGroups: [""] # Core API group
+  - apiGroups: [""]  
+    resources: ["pods", "services", "replicationcontrollers", "nodes"]
+    verbs: ["list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
+    verbs: ["list"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["list"]
+
+  - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["create", "update", "get"]
 
