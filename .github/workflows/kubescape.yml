@@ -1,4 +1,4 @@
-name: Kubescape scanning for misconfigurations
+name: Build and push Docker image to GitHub Container Registry
 on: [push, pull_request]
 
 jobs:
@@ -11,6 +11,15 @@ jobs:
         run: |
           curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
 
+      - name: Run NSA Compliance scan
+        run: |
+          $HOME/.kubescape/bin/kubescape scan framework nsa \
+            ./poc-prerequisite/kubescape-sizing-checker/k8s-manifest.yaml \
+            --fail-threshold 80 \
+            --severity-threshold high
+            --format sarif
+            --output results-nsa.sarif
+
       - name: Run Kubescape to scan image
         run: |
           $HOME/.kubescape/bin/kubescape scan image alpine:latest \
@@ -21,4 +30,5 @@ jobs:
       - name: Upload Kubescape scan results to Github Code Scanning
         uses: github/codeql-action/upload-sarif@v3
         with:
+          sarif_file: results-nsa.sarif
           sarif_file: results.sarif

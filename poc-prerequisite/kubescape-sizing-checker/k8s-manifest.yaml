@@ -62,7 +62,6 @@ spec:
         - name: sizing-checker
           image: "quay.io/danvid/kubescape-sizing-checker"
           imagePullPolicy: Always
-          # Removed stdin and tty as they are not needed for a Job
           resources:
             requests:
               memory: "256Mi"
