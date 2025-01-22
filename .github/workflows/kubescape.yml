@@ -1,0 +1,24 @@
+name: Kubescape scanning for misconfigurations
+on: [push, pull_request]
+
+jobs:
+  kubescape:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Kubescape
+        run: |
+          curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
+
+      - name: Run Kubescape to scan image
+        run: |
+          $HOME/.kubescape/bin/kubescape scan image alpine:latest \
+            --severity-threshold critical \
+            --format sarif \
+            --output results.sarif
+
+      - name: Upload Kubescape scan results to Github Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
