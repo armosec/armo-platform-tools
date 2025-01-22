@@ -16,8 +16,8 @@ jobs:
           $HOME/.kubescape/bin/kubescape scan framework nsa \
             ./poc-prerequisite/kubescape-sizing-checker/k8s-manifest.yaml \
             --fail-threshold 80 \
-            --severity-threshold high
-            --format sarif
+            --severity-threshold high \
+            --format sarif \
             --output results-nsa.sarif
 
       - name: Run Kubescape to scan image
