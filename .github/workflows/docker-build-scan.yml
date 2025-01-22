@@ -56,7 +56,7 @@ jobs:
       - name: Run Kubescape to scan image
         run: |
           # $HOME/.kubescape/bin/kubescape scan image quay.io/danvid/kubescape-sizing-checker:latest \
-          $HOME/.kubescape/bin/kubescape scan image alpine:3.20.2 \
+          $HOME/.kubescape/bin/kubescape scan image alpine:latest \
             --severity-threshold high \
             --format sarif \
             --output results-image.sarif
