@@ -8,6 +8,8 @@ on:
       - "poc-prerequisite/kubescape-sizing-checker/pkg"
       - "poc-prerequisite/kubescape-sizing-checker/go.mod"
       - "poc-prerequisite/kubescape-sizing-checker/go.sum"
+  workflow_dispatch:
+
 
 jobs:
   build-and-scan:

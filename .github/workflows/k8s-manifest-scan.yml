@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "poc-prerequisite/kubescape-sizing-checker/k8s-manifest.yaml"
+  workflow_dispatch:
 
 jobs:
   nsa-scan:
