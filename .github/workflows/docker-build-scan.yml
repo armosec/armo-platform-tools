@@ -1,4 +1,5 @@
 name: Build, push and scan Docker image
+on: [push, pull_request]
 
 # on:
 #   push:
@@ -9,7 +10,6 @@ name: Build, push and scan Docker image
 #       - "poc-prerequisite/kubescape-sizing-checker/go.mod"
 #       - "poc-prerequisite/kubescape-sizing-checker/go.sum"
 #   workflow_dispatch:
-  on: [push, pull_request]
 
 
 jobs:
