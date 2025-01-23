@@ -22,7 +22,7 @@ jobs:
         uses: docker/login-action@v2
         with:
           registry: quay.io
-          username: ${{ secrets.QUAY_ROBOT_ACCOUNT_USERNAME }}
+          username: ${{ secrets.QUAY_ROBOT_ACCOUNT_NAME }}
           password: ${{ secrets.QUAY_ROBOT_ACCOUNT_PASSWORD }}
 
       - name: Set up QEMU (for multi-platform support)
@@ -55,7 +55,7 @@ jobs:
       - name: Run Kubescape to scan image
         run: |
           $HOME/.kubescape/bin/kubescape scan image quay.io/danvid/kubescape-sizing-checker:latest \
-            --severity-threshold critical \
+            --severity-threshold high \
             --format sarif \
             --output results-image.sarif
 
