@@ -25,7 +25,7 @@ jobs:
             -t local/kubescape-sizing-checker:latest \
             ./poc-prerequisite/kubescape-sizing-checker
 
-      # 2) Run Kubescape scan on local image and upload results
+      # 2) Run Kubescape scan on local image
 
       - name: Install Kubescape
         run: |
@@ -37,12 +37,6 @@ jobs:
             --severity-threshold high \
             --format sarif \
             --output results-image.sarif
-
-      - name: Upload image scan results to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: results-image.sarif
-          category: image-scan
 
       # 3) Build and push multi-platform images
 
@@ -73,3 +67,11 @@ jobs:
             -t quay.io/danvid/kubescape-sizing-checker:${SHORT_SHA} \
             --push \
             ./poc-prerequisite/kubescape-sizing-checker
+
+      # 4) upload results GitHub Code Scanning
+      - name: Upload image scan results to GitHub Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results-image.sarif
+          category: image-scan
