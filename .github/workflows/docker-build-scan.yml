@@ -10,51 +10,30 @@ on:
       - "poc-prerequisite/kubescape-sizing-checker/go.sum"
   workflow_dispatch:
 
-
 jobs:
   build-and-scan:
     runs-on: ubuntu-latest
     steps:
+      # 1) Build a local image for scanning
+
       - name: Check out repository
         uses: actions/checkout@v3
 
-      - name: Log in to Quay.io
-        uses: docker/login-action@v2
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_ROBOT_ACCOUNT_NAME }}
-          password: ${{ secrets.QUAY_ROBOT_ACCOUNT_PASSWORD }}
-
-      - name: Set up QEMU (for multi-platform support)
-        uses: docker/setup-qemu-action@v2
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Build and push multi-platform Docker image
-        id: build-image
+      - name: Build local image for scanning
         run: |
-          # Generate a short commit SHA for a unique tag
-          SHORT_SHA="${GITHUB_SHA:0:7}"
-
-          # Create and use a new buildx builder (if needed)
-          docker buildx create --use
-
-          # Build and push multi-architecture images
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            -t quay.io/danvid/kubescape-sizing-checker:latest \
-            -t quay.io/danvid/kubescape-sizing-checker:${SHORT_SHA} \
-            --push \
+          docker build \
+            -t local/kubescape-sizing-checker:latest \
             ./poc-prerequisite/kubescape-sizing-checker
+
+      # 2) Run Kubescape scan on local image and upload results
 
       - name: Install Kubescape
         run: |
           curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
 
-      - name: Run Kubescape to scan image
+      - name: Run Kubescape to scan local image
         run: |
-          $HOME/.kubescape/bin/kubescape scan image quay.io/danvid/kubescape-sizing-checker:latest \
+          $HOME/.kubescape/bin/kubescape scan image local/kubescape-sizing-checker:latest \
             --severity-threshold high \
             --format sarif \
             --output results-image.sarif
@@ -64,3 +43,33 @@ jobs:
         with:
           sarif_file: results-image.sarif
           category: image-scan
+
+      # 3) Build and push multi-platform images
+
+      - name: Set up QEMU (for multi-platform support)
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Quay.io
+        uses: docker/login-action@v2
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_ROBOT_ACCOUNT_NAME }}
+          password: ${{ secrets.QUAY_ROBOT_ACCOUNT_PASSWORD }}
+
+      - name: Build and push multi-platform Docker image
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+
+          # Create and use a new buildx builder
+          docker buildx create --use || true
+
+          # Build and push multi-architecture images
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t quay.io/danvid/kubescape-sizing-checker:latest \
+            -t quay.io/danvid/kubescape-sizing-checker:${SHORT_SHA} \
+            --push \
+            ./poc-prerequisite/kubescape-sizing-checker
