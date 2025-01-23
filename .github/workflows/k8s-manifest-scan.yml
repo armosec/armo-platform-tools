@@ -1,0 +1,32 @@
+name: NSA Compliance Scan
+
+on:
+  push:
+    paths:
+      - "poc-prerequisite/kubescape-sizing-checker/k8s-manifest.yaml"
+  workflow_dispatch:
+
+jobs:
+  nsa-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Install Kubescape
+        run: |
+          curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
+
+      - name: Run NSA Compliance scan
+        run: |
+          $HOME/.kubescape/bin/kubescape scan framework nsa \
+            ./poc-prerequisite/kubescape-sizing-checker/k8s-manifest.yaml \
+            --severity-threshold high \
+            --format sarif \
+            --output results-nsa.sarif
+
+      - name: Upload NSA Compliance scan results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results-nsa.sarif
+          category: nsa-compliance-scan
