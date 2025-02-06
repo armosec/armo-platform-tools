@@ -1,4 +1,4 @@
-package sizingchecker
+package sizing
 
 import (
 	_ "embed"

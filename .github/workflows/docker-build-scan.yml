@@ -3,11 +3,11 @@ name: Build, push and scan Docker image
 on:
   push:
     paths:
-      - "poc-prerequisite/kubescape-sizing-checker/Dockerfile"
-      - "poc-prerequisite/kubescape-sizing-checker/cmd"
-      - "poc-prerequisite/kubescape-sizing-checker/pkg"
-      - "poc-prerequisite/kubescape-sizing-checker/go.mod"
-      - "poc-prerequisite/kubescape-sizing-checker/go.sum"
+      - "poc-prerequisite/Dockerfile"
+      - "poc-prerequisite/cmd"
+      - "poc-prerequisite/pkg"
+      - "poc-prerequisite/go.mod"
+      - "poc-prerequisite/go.sum"
   workflow_dispatch:
 
 jobs:
@@ -22,8 +22,8 @@ jobs:
       - name: Build local image for scanning
         run: |
           docker build \
-            -t local/kubescape-sizing-checker:latest \
-            ./poc-prerequisite/kubescape-sizing-checker
+            -t local/kubescape-prerequisite:latest \
+            ./poc-prerequisite
 
       # 2) Run Kubescape scan on local image
 
@@ -33,7 +33,7 @@ jobs:
 
       - name: Run Kubescape to scan local image
         run: |
-          $HOME/.kubescape/bin/kubescape scan image local/kubescape-sizing-checker:latest \
+          $HOME/.kubescape/bin/kubescape scan image local/kubescape-prerequisite:latest \
             --severity-threshold high \
             --format sarif \
             --output results-image.sarif
@@ -63,10 +63,10 @@ jobs:
           # Build and push multi-architecture images
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
-            -t quay.io/danvid/kubescape-sizing-checker:latest \
-            -t quay.io/danvid/kubescape-sizing-checker:${SHORT_SHA} \
+            -t quay.io/danvid/kubescape-prerequisite:latest \
+            -t quay.io/danvid/kubescape-prerequisite:${SHORT_SHA} \
             --push \
-            ./poc-prerequisite/kubescape-sizing-checker
+            ./poc-prerequisite
 
       # 4) upload results GitHub Code Scanning
       - name: Upload image scan results to GitHub Code Scanning

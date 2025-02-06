@@ -1,100 +1,119 @@
-# ARMO POC Prerequisite Validation Script
+# Kubescape Sizing Checker
 
-This script is designed to validate the prerequisites for the ARMO Security Proof of Concept (POC). It performs the following checks:
+## Overview
 
-1. Network accessibility
-2. Helm chart installation permissions
-3. eBPF support on all nodes
-4. Persistent Volume (PV) support
+Kubescape Sizing Checker analyzes your Kubernetes cluster's resources and generates recommended Helm values to ensure Kubescape runs smoothly and efficiently.
 
 ## Prerequisites
 
-- A Kubernetes cluster
-- kubectl configured to access the cluster
-- Helm installed and configured
-- A file named `ip_list.txt` containing a list of IP addresses to check for network accessibility
+- **Kubeconfig** configured for access to the Kubernetes cluster where you plan to deploy Armo.
+
+## Run the Check
+
+There are two ways to run the check:
+
+### Option 1 - Local Run
+
+1. Navigate to the command directory and Execute the program:
+   ```sh
+   cd /cmd
+   go run .
+   ```
+
+### Option 2 - In-cluster Run
+
+#### Prerequisites
+
+- **Permissions** to create ServiceAccounts, ClusterRoles, ClusterRoleBindings, and Jobs.
+
+1. **Deploy the Kubernetes manifest:**
+
+   Apply the Kubernetes manifest to set up the necessary resources:
+
+   ```sh
+   kubectl apply -f k8s-manifest.yaml
+   ```
+
+2. **Verify Job Completion:**
+
+   Check the status and logs of the Job:
+
+   ```sh
+   kubectl wait --for=condition=complete job/kubescape-prerequisite --timeout=60s
+   kubectl logs job/kubescape-prerequisite
+   ```
+
+3. **Export the Files:**
+
+   Retrieve the `recommended-values.yaml` and `sizing-report.html` from the ConfigMap:
+
+   ```sh
+   kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data "recommended-values.yaml" }}' > recommended-values.yaml
+   kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data "sizing-report.html" }}' > sizing-report.html
+   ```
 
 ## Usage
 
-1. Clone this repository and navigate to the directory:
-   ```bash
-   git clone https://github.com/armosec/armo-platform-tools.git
-   cd armo-platform-tools/poc-prerequisite/
-   chmod +x armo-poc-prerequisite.sh
-   ```
+### Deploy Kubescape with Recommended Resources
 
-2. Run the script:
-   ```bash
-   ./armo-poc-prerequisite.sh
-   ```
+Use Helm to deploy Kubescape using the recommended values:
 
-## Script Details
+```sh
+helm upgrade --install kubescape kubescape/kubescape-operator \
+  --namespace kubescape --create-namespace \
+  --values recommended-values.yaml [other parameters]
+```
 
-### check_network_accessibility
+### View the Sizing Report
 
-This function checks if the network is accessible by trying to connect to each IP address listed in `ip_list.txt` on port 443 using `nc` (netcat).
+If you want to review the sizing report, open the HTML file:
 
-### verify_helm_permissions
+**Open in Browser:**
 
-This function verifies that you have the necessary permissions to install Helm charts by performing a dry-run installation of the `kubescape` chart.
-
-### check_ebpf_support
-
-This function checks if eBPF is supported on all nodes in the cluster by creating a DaemonSet that attempts to access `/sys/fs/bpf`.
-
-### check_pv_support
-
-This function checks if Persistent Volume Claims (PVCs) can be successfully bound by creating a test PVC.
+- **macOS:**
+    ```sh
+    open sizing-report.html
+    ```
+- **Linux:**
+    ```sh
+    xdg-open sizing-report.html
+    ```
+- **Windows (Git Bash):**
+    ```sh
+    start sizing-report.html
+    ```
 
 ## Output
+### Local Run
+    ```------------------------------------------------------------
+    ✅ Sizing report generated locally!
+    • /tmp/sizing-report.html (HTML report)
+    • /tmp/recommended-values.yaml (Helm values file)
 
-The script will output the status of each check:
+    📋 Open /tmp/sizing-report.html in your browser for details.
+    🚀 Use the generated recommended-values.yaml to optimize Kubescape for your cluster.
+    ------------------------------------------------------------
+    ```
 
-- ✅ for a successful check
-- ❌ for a failed check
 
-If any checks fail, detailed failure messages will be printed.
+### In-cluster Run
+    ```sh
+    kubectl logs job/kubescape-prerequisite
+    ```
+    ```------------------------------------------------------------
+    ✅ Sizing report stored in Kubernetes ConfigMap!
+    • ConfigMap Name: sizing-report
+    • Namespace: default
+    ------------------------------------------------------------
 
-## Example `ip_list.txt`
+    ⬇️ To export the report and recommended values to local files, run the following commands:
+        kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data "sizing-report.html" }}' > sizing-report.html
+        kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data "recommended-values.yaml" }}' > recommended-values.yaml
 
-```
-192.168.1.1
-10.0.0.1
-172.16.0.1
-```
+    📋 Open sizing-report.html in your browser for details.
+    🚀 Use the generated recommended-values.yaml to optimize Kubescape for your cluster.
+    ------------------------------------------------------------
+    ```
 
-## Example Output
-
-```plaintext
-✅ Network accessibility check passed.
-✅ Helm chart installation permissions check passed.
-✅ eBPF support check passed.
-✅ PV support check passed.
-
-🎉🐼 Your cluster is ready for the ARMO Security POC.
-```
-
-If any checks fail, the output will look like this:
-
-```plaintext
-❌ Network accessibility check failed.
-###    Details    ###
-failed to access: 192.168.1.1 10.0.0.1
-
-✅ Helm chart installation permissions check passed.
-❌ eBPF support check failed.
-###    Details    ###
-failed on nodes: node1 node2
-
-✅ PV support check passed.
-
-🚨 Your cluster is not ready for the ARMO Security POC. Failures: 2
-```
-
-## Troubleshooting
-
-- Ensure `kubectl` is configured to access your cluster.
-- Verify Helm is installed and configured correctly.
-- Check the `ip_list.txt` file for correct IP addresses.
-
-For further assistance, please contact support.
+### Report example
+![alt text](Report-example.png)

@@ -1,4 +1,4 @@
-module github.com/armosec/armo-platform-tools/poc-prerequisite/kubescape-sizing-checker
+module github.com/armosec/armo-platform-tools/poc-prerequisite
 
 go 1.23.0
 

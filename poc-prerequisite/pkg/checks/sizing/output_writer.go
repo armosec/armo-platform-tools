@@ -1,5 +1,5 @@
 // output_writer.go
-package sizingchecker
+package sizing
 
 import (
 	"context"
