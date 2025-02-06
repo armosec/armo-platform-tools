@@ -2,6 +2,8 @@ name: Build, push and scan Docker image
 
 on:
   push:
+    branches:
+      - main
     paths:
       - "poc-prerequisite/Dockerfile"
       - "poc-prerequisite/cmd"

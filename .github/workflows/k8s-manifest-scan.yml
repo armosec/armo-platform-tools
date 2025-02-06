@@ -2,6 +2,8 @@ name: NSA Compliance Scan
 
 on:
   push:
+    branches:
+      - main
     paths:
       - "poc-prerequisite/k8s-manifest.yaml"
   workflow_dispatch:
