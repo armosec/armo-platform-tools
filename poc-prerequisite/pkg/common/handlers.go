@@ -1,4 +1,4 @@
-package sizing
+package common
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func buildHTMLReport(data *reportData, tpl string) string {
+func BuildHTMLReport(data *ReportData, tpl string) string {
 	tmpl, err := template.New("report").Parse(tpl)
 	if err != nil {
 		return fmt.Sprintf("Error building report: %v", err)
@@ -18,7 +18,7 @@ func buildHTMLReport(data *reportData, tpl string) string {
 	return sb.String()
 }
 
-func buildValuesYAML(d *reportData) string {
+func BuildValuesYAML(d *ReportData) string {
 	overrides := map[string]string{}
 
 	// For each component in the default resource limits
@@ -139,4 +139,14 @@ func buildComponentSection(componentName, subSection string, fields map[string]s
 	}
 
 	return sb.String()
+}
+
+type ReportData struct {
+	TotalResources          int
+	MaxNodeCPUCapacity      int
+	MaxNodeMemoryMB         int
+	LargestContainerImageMB int
+
+	DefaultResourceAllocations map[string]map[string]string
+	FinalResourceAllocations   map[string]map[string]string
 }

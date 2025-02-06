@@ -1,8 +1,8 @@
-package sizing
+package common
 
 import (
 	_ "embed"
 )
 
 //go:embed templates/prerequisites-report.html
-var prerequisitesReportHTML string
+var PrerequisitesReportHTML string

@@ -2,16 +2,18 @@ package sizing
 
 import (
 	"context"
+
+	"github.com/armosec/armo-platform-tools/poc-prerequisite/pkg/common"
 )
 
 func RunSizingChecker() {
 	// 1) Build Kubernetes client (detect if running in-cluster or local)
-	inCluster, clientset := buildKubeClient()
+	inCluster, clientset := common.BuildKubeClient()
 
 	// 2) Gather data
 	ctx := context.Background()
-	totalResources := getTotalResources(ctx, clientset)
-	maxCPU, maxMem, largestImageMB := getNodeStats(ctx, clientset)
+	totalResources := common.GetTotalResources(ctx, clientset)
+	maxCPU, maxMem, largestImageMB := common.GetNodeStats(ctx, clientset)
 
 	// 3) Calculate recommended resources
 	recNodeAgentCPUReq, recNodeAgentCPULim := calculateNodeAgentCPU(maxCPU)
@@ -37,8 +39,8 @@ func RunSizingChecker() {
 		},
 	}
 
-	// 5) Put it all into reportData
-	data := &reportData{
+	// 5) Put it all into ReportData
+	data := &common.ReportData{
 		TotalResources:          totalResources,
 		MaxNodeCPUCapacity:      maxCPU,
 		MaxNodeMemoryMB:         maxMem,
@@ -49,12 +51,12 @@ func RunSizingChecker() {
 	}
 
 	// 6) Generate HTML report and values.yaml
-	htmlContent := buildHTMLReport(data, prerequisitesReportHTML)
-	yamlContent := buildValuesYAML(data)
+	htmlContent := common.BuildHTMLReport(data, common.PrerequisitesReportHTML)
+	yamlContent := common.BuildValuesYAML(data)
 
 	if inCluster {
-		writeToConfigMap(htmlContent, yamlContent)
+		common.WriteToConfigMap(htmlContent, yamlContent)
 	} else {
-		writeToDisk(htmlContent, yamlContent)
+		common.WriteToDisk(htmlContent, yamlContent)
 	}
 }

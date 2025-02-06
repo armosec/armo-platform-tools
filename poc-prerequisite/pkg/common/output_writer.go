@@ -1,4 +1,4 @@
-package sizing
+package common
 
 import (
 	"context"
@@ -48,8 +48,8 @@ func printConfigMapSuccess() {
 	printSeparator()
 }
 
-// writeToDisk writes the HTML and YAML content to local disk and prints instructions.
-func writeToDisk(htmlContent, yamlContent string) {
+// WriteToDisk writes the HTML and YAML content to local disk and prints instructions.
+func WriteToDisk(htmlContent, yamlContent string) {
 	// Write the HTML report
 	reportPath := filepath.Join(os.TempDir(), "prerequisites-report.html")
 	if err := os.WriteFile(reportPath, []byte(htmlContent), 0644); err != nil {
@@ -66,8 +66,8 @@ func writeToDisk(htmlContent, yamlContent string) {
 	printDiskSuccess(reportPath, valuesPath)
 }
 
-// writeToConfigMap writes the HTML and YAML content to a Kubernetes ConfigMap and prints instructions.
-func writeToConfigMap(htmlContent, yamlContent string) {
+// WriteToConfigMap writes the HTML and YAML content to a Kubernetes ConfigMap and prints instructions.
+func WriteToConfigMap(htmlContent, yamlContent string) {
 	// Build in-cluster Kubernetes client configuration
 	config, err := rest.InClusterConfig()
 	if err != nil {

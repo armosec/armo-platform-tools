@@ -1,4 +1,4 @@
-package sizing
+package common
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func buildKubeClient() (bool, *kubernetes.Clientset) {
+func BuildKubeClient() (bool, *kubernetes.Clientset) {
 	inCluster := true
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -35,7 +35,7 @@ func buildKubeClient() (bool, *kubernetes.Clientset) {
 	return inCluster, clientset
 }
 
-func getTotalResources(ctx context.Context, clientset *kubernetes.Clientset) int {
+func GetTotalResources(ctx context.Context, clientset *kubernetes.Clientset) int {
 	if clientset == nil {
 		log.Println("clientset is nil")
 		return 0
@@ -92,7 +92,7 @@ func getTotalResources(ctx context.Context, clientset *kubernetes.Clientset) int
 	return total
 }
 
-func getNodeStats(ctx context.Context, clientset *kubernetes.Clientset) (int, int, int) {
+func GetNodeStats(ctx context.Context, clientset *kubernetes.Clientset) (int, int, int) {
 	nodes, err := clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		log.Printf("Failed to list nodes: %v", err)
