@@ -58,15 +58,16 @@ jobs:
           SHORT_SHA="${GITHUB_SHA:0:7}"
 
           # Create and use a new buildx builder
-          docker buildx create --use || true
+          echo "Dammy step: Creating and using a new buildx builder"
+          # docker buildx create --use || true
 
-          # Build and push multi-architecture images
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            -t quay.io/danvid/kubescape-sizing-checker:latest \
-            -t quay.io/danvid/kubescape-sizing-checker:${SHORT_SHA} \
-            --push \
-            ./poc-prerequisite/kubescape-sizing-checker
+          # # Build and push multi-architecture images
+          # docker buildx build \
+          #   --platform linux/amd64,linux/arm64 \
+          #   -t quay.io/danvid/kubescape-sizing-checker:latest \
+          #   -t quay.io/danvid/kubescape-sizing-checker:${SHORT_SHA} \
+          #   --push \
+          #   ./poc-prerequisite/kubescape-sizing-checker
 
       # 4) upload results GitHub Code Scanning
       - name: Upload image scan results to GitHub Code Scanning
