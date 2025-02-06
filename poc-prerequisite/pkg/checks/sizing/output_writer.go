@@ -1,4 +1,3 @@
-// output_writer.go
 package sizing
 
 import (
@@ -14,20 +13,17 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// Helper function to print a separator line
 func printSeparator() {
 	fmt.Println("------------------------------------------------------------")
 }
 
-// Helper function to print the Helm upgrade command instructions
 func printHelmInstructions() {
 	fmt.Println("🚀 Use the generated recommended-values.yaml to optimize Kubescape for your cluster.")
 }
 
-// Helper function to print the sizing report generation success message for local disk
 func printDiskSuccess(reportPath, valuesPath string) {
 	printSeparator()
-	fmt.Println("✅ Sizing report generated locally!")
+	fmt.Println("✅ prerequisites report generated locally!")
 	fmt.Println("   •", reportPath, "(HTML report)")
 	fmt.Println("   •", valuesPath, "(Helm values file)")
 	fmt.Println("")
@@ -36,19 +32,18 @@ func printDiskSuccess(reportPath, valuesPath string) {
 	printSeparator()
 }
 
-// Helper function to print the sizing report storage success message for ConfigMap
 func printConfigMapSuccess() {
 	printSeparator()
-	fmt.Println("✅ Sizing report stored in Kubernetes ConfigMap!")
-	fmt.Println("   • ConfigMap Name: sizing-report")
+	fmt.Println("✅ prerequisites report stored in Kubernetes ConfigMap!")
+	fmt.Println("   • ConfigMap Name: prerequisites-report")
 	fmt.Println("   • Namespace: default")
 	printSeparator()
 	fmt.Println("")
 	fmt.Println("⬇️  To export the report and recommended values to local files, run the following commands:")
-	fmt.Println("    kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data \"sizing-report.html\" }}' > sizing-report.html")
-	fmt.Println("    kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data \"recommended-values.yaml\" }}' > recommended-values.yaml")
+	fmt.Println("    kubectl get configmap kubescape-prerequisites-report -n default -o go-template='{{ index .data \"prerequisites-report.html\" }}' > prerequisites-report.html")
+	fmt.Println("    kubectl get configmap kubescape-prerequisites-report -n default -o go-template='{{ index .data \"recommended-values.yaml\" }}' > recommended-values.yaml")
 	fmt.Println("")
-	fmt.Println("📋 Open sizing-report.html in your browser for details.")
+	fmt.Println("📋 Open prerequisites-report.html in your browser for details.")
 	printHelmInstructions()
 	printSeparator()
 }
@@ -56,7 +51,7 @@ func printConfigMapSuccess() {
 // writeToDisk writes the HTML and YAML content to local disk and prints instructions.
 func writeToDisk(htmlContent, yamlContent string) {
 	// Write the HTML report
-	reportPath := filepath.Join(os.TempDir(), "sizing-report.html")
+	reportPath := filepath.Join(os.TempDir(), "prerequisites-report.html")
 	if err := os.WriteFile(reportPath, []byte(htmlContent), 0644); err != nil {
 		log.Fatalf("Could not write HTML report: %v", err)
 	}
@@ -86,7 +81,7 @@ func writeToConfigMap(htmlContent, yamlContent string) {
 	}
 
 	// Define the ConfigMap name and namespace
-	configMapName := "kubescape-sizing-report"
+	configMapName := "kubescape-prerequisites-report"
 	namespace := "default"
 
 	// Prepare the ConfigMap data
@@ -96,8 +91,8 @@ func writeToConfigMap(htmlContent, yamlContent string) {
 			Namespace: namespace,
 		},
 		Data: map[string]string{
-			"sizing-report.html":      htmlContent,
-			"recommended-values.yaml": yamlContent,
+			"prerequisites-report.html": htmlContent,
+			"recommended-values.yaml":   yamlContent,
 		},
 	}
 

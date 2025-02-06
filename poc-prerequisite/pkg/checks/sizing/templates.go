@@ -4,5 +4,5 @@ import (
 	_ "embed"
 )
 
-//go:embed templates/sizing-report.html
-var sizingReportHTML string
+//go:embed templates/prerequisites-report.html
+var prerequisitesReportHTML string

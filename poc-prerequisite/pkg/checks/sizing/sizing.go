@@ -4,7 +4,6 @@ import (
 	"context"
 )
 
-// RunSizingChecker is the real driver for your sizing logic.
 func RunSizingChecker() {
 	// 1) Build Kubernetes client (detect if running in-cluster or local)
 	inCluster, clientset := buildKubeClient()
@@ -50,7 +49,7 @@ func RunSizingChecker() {
 	}
 
 	// 6) Generate HTML report and values.yaml
-	htmlContent := buildHTMLReport(data, sizingReportHTML)
+	htmlContent := buildHTMLReport(data, prerequisitesReportHTML)
 	yamlContent := buildValuesYAML(data)
 
 	if inCluster {

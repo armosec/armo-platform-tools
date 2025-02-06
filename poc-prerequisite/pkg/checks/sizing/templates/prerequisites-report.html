@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8"/>
-    <title>Kubescape Sizing Checker: Sizing Report</title>
+    <title>Kubescape Prerequisites Checker: Prerequisites Report</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -79,7 +79,7 @@
     <div class="container">
         <header>
             <div class="title-section">
-                <h1>Kubescape Sizing Report</h1>
+                <h1>Kubescape Prerequisites Report</h1>
             </div>
             <img src="https://raw.githubusercontent.com/kubescape/kubescape/master/core/pkg/resultshandling/printer/v2/pdf/logo.png" alt="Kubescape Logo"/>
         </header>
@@ -96,7 +96,7 @@
 
         <section>
             <h2>Recommended Adjustments</h2>
-            <p>Changes exceeding defaults are listed below. If empty, no adjustments are needed.</p>
+            <p>If empty, no adjustments are needed.</p>
             {{ range $component, $finalsMap := .FinalResourceAllocations }}
                 {{ $defaultsMap := index $.DefaultResourceAllocations $component }}
                 {{ $noChanges := true }}

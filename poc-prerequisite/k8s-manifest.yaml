@@ -59,7 +59,7 @@ spec:
       restartPolicy: Never
       serviceAccountName: kubescape-prerequisite
       containers:
-        - name: sizing-checker
+        - name: kubescape-prerequisite
           image: "quay.io/danvid/kubescape-prerequisite"
           imagePullPolicy: Always
           resources:

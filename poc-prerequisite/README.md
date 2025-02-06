@@ -1,8 +1,8 @@
-# Kubescape Sizing Checker
+# Kubescape Prerequisites Checker
 
 ## Overview
 
-Kubescape Sizing Checker analyzes your Kubernetes cluster's resources and generates recommended Helm values to ensure Kubescape runs smoothly and efficiently.
+Kubescape Prerequisites Checker analyzes your Kubernetes cluster and generates recommended Helm values to ensure Kubescape runs smoothly and efficiently.
 
 ## Prerequisites
 
@@ -16,8 +16,7 @@ There are two ways to run the check:
 
 1. Navigate to the command directory and Execute the program:
    ```sh
-   cd /cmd
-   go run .
+   go run ./cmd/checker
    ```
 
 ### Option 2 - In-cluster Run
@@ -45,11 +44,11 @@ There are two ways to run the check:
 
 3. **Export the Files:**
 
-   Retrieve the `recommended-values.yaml` and `sizing-report.html` from the ConfigMap:
+   Retrieve the `recommended-values.yaml` and `prerequisites-report.html` from the ConfigMap:
 
    ```sh
-   kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data "recommended-values.yaml" }}' > recommended-values.yaml
-   kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data "sizing-report.html" }}' > sizing-report.html
+   kubectl get configmap kubescape-prerequisites-report -n default -o go-template='{{ index .data "recommended-values.yaml" }}' > recommended-values.yaml
+   kubectl get configmap kubescape-prerequisites-report -n default -o go-template='{{ index .data "prerequisites-report.html" }}' > prerequisites-report.html
    ```
 
 ## Usage
@@ -64,33 +63,33 @@ helm upgrade --install kubescape kubescape/kubescape-operator \
   --values recommended-values.yaml [other parameters]
 ```
 
-### View the Sizing Report
+### View the Prerequisites Report
 
-If you want to review the sizing report, open the HTML file:
+If you want to review the prerequisites report, open the HTML file:
 
 **Open in Browser:**
 
 - **macOS:**
     ```sh
-    open sizing-report.html
+    open prerequisites-report.html
     ```
 - **Linux:**
     ```sh
-    xdg-open sizing-report.html
+    xdg-open prerequisites-report.html
     ```
 - **Windows (Git Bash):**
     ```sh
-    start sizing-report.html
+    start prerequisites-report.html
     ```
 
 ## Output
 ### Local Run
     ```------------------------------------------------------------
-    ✅ Sizing report generated locally!
-    • /tmp/sizing-report.html (HTML report)
+    ✅ Prerequisites report generated locally!
+    • /tmp/prerequisites-report.html (HTML report)
     • /tmp/recommended-values.yaml (Helm values file)
 
-    📋 Open /tmp/sizing-report.html in your browser for details.
+    📋 Open /tmp/prerequisites-report.html in your browser for details.
     🚀 Use the generated recommended-values.yaml to optimize Kubescape for your cluster.
     ------------------------------------------------------------
     ```
@@ -101,16 +100,16 @@ If you want to review the sizing report, open the HTML file:
     kubectl logs job/kubescape-prerequisite
     ```
     ```------------------------------------------------------------
-    ✅ Sizing report stored in Kubernetes ConfigMap!
-    • ConfigMap Name: sizing-report
+    ✅ Prerequisites report stored in Kubernetes ConfigMap!
+    • ConfigMap Name: prerequisites-report
     • Namespace: default
     ------------------------------------------------------------
 
     ⬇️ To export the report and recommended values to local files, run the following commands:
-        kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data "sizing-report.html" }}' > sizing-report.html
-        kubectl get configmap kubescape-sizing-report -n default -o go-template='{{ index .data "recommended-values.yaml" }}' > recommended-values.yaml
+        kubectl get configmap kubescape-prerequisites-report -n default -o go-template='{{ index .data "prerequisites-report.html" }}' > prerequisites-report.html
+        kubectl get configmap kubescape-prerequisites-report -n default -o go-template='{{ index .data "recommended-values.yaml" }}' > recommended-values.yaml
 
-    📋 Open sizing-report.html in your browser for details.
+    📋 Open prerequisites-report.html in your browser for details.
     🚀 Use the generated recommended-values.yaml to optimize Kubescape for your cluster.
     ------------------------------------------------------------
     ```
