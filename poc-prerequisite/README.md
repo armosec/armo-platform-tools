@@ -98,7 +98,8 @@ If you want to review the prerequisites report, open the HTML file:
 ### In-cluster Run
     
     kubectl logs job/kubescape-prerequisite
-    
+
+
     ------------------------------------------------------------
     ✅ Prerequisites report stored in Kubernetes ConfigMap!
     • ConfigMap Name: prerequisites-report
