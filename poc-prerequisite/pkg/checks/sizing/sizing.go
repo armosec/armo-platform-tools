@@ -1,27 +1,23 @@
+// pkg/checks/sizing/sizing.go
 package sizing
 
 import (
 	"context"
+	"time"
 
 	"github.com/armosec/armo-platform-tools/poc-prerequisite/pkg/common"
+	"k8s.io/client-go/kubernetes"
 )
 
-func RunSizingChecker() {
-	// 1) Build Kubernetes client (detect if running in-cluster or local)
-	inCluster, clientset := common.BuildKubeClient()
+func RunSizingChecker(ctx context.Context, clientset *kubernetes.Clientset, data *common.ClusterData) *common.ReportData {
+	totalResources := countAllResources(data)
+	maxCPU, maxMem, largestImageMB := getNodeStats(data)
 
-	// 2) Gather data
-	ctx := context.Background()
-	totalResources := common.GetTotalResources(ctx, clientset)
-	maxCPU, maxMem, largestImageMB := common.GetNodeStats(ctx, clientset)
-
-	// 3) Calculate recommended resources
 	recNodeAgentCPUReq, recNodeAgentCPULim := calculateNodeAgentCPU(maxCPU)
 	recNodeAgentMemReq, recNodeAgentMemLim := calculateNodeAgentMemory(maxMem)
 	recStorageMemReq, recStorageMemLim := calculateStorageMemory(totalResources)
 	recKubevulnMemReq, recKubevulnMemLim := calculateKubevulnMemory(largestImageMB)
 
-	// 4) Build final map of recommended resources
 	finalResourceAllocations := map[string]map[string]string{
 		"nodeAgent": {
 			"cpuReq": compareAndChoose(defaultResourceAllocations["nodeAgent"]["cpuReq"], recNodeAgentCPUReq),
@@ -39,24 +35,77 @@ func RunSizingChecker() {
 		},
 	}
 
-	// 5) Put it all into ReportData
-	data := &common.ReportData{
-		TotalResources:          totalResources,
-		MaxNodeCPUCapacity:      maxCPU,
-		MaxNodeMemoryMB:         maxMem,
-		LargestContainerImageMB: largestImageMB,
-
+	return &common.ReportData{
+		// Old fields
+		TotalResources:             totalResources,
+		MaxNodeCPUCapacity:         maxCPU,
+		MaxNodeMemoryMB:            maxMem,
+		LargestContainerImageMB:    largestImageMB,
 		DefaultResourceAllocations: defaultResourceAllocations,
 		FinalResourceAllocations:   finalResourceAllocations,
-	}
 
-	// 6) Generate HTML report and values.yaml
-	htmlContent := common.BuildHTMLReport(data, common.PrerequisitesReportHTML)
-	yamlContent := common.BuildValuesYAML(data)
+		// New cluster-level fields from data.ClusterDetails
+		KubernetesVersion: data.ClusterDetails.Version,
+		CloudProvider:     data.ClusterDetails.CloudProvider,
+		K8sDistribution:   data.ClusterDetails.K8sDistribution,
+		TotalNodeCount:    data.ClusterDetails.TotalNodeCount,
+		TotalVCPUCount:    data.ClusterDetails.TotalVCPUCount,
 
-	if inCluster {
-		common.WriteToConfigMap(htmlContent, yamlContent)
-	} else {
-		common.WriteToDisk(htmlContent, yamlContent)
+		// Timestamps & adjustments
+		GenerationTime:    time.Now().Format("2006-01-02 15:04:05"),
+		HasAnyAdjustments: computeHasAnyAdjustments(defaultResourceAllocations, finalResourceAllocations),
 	}
+}
+
+// For example, countAllResources might sum up the lengths of pods, services,
+// deployments, etc. stored in clusterData.
+func countAllResources(cd *common.ClusterData) int {
+	return len(cd.Pods) + len(cd.Services) +
+		len(cd.Deployments) + len(cd.ReplicaSets) +
+		len(cd.StatefulSets) + len(cd.DaemonSets) +
+		len(cd.Jobs) + len(cd.CronJobs)
+}
+
+// parse node stats from clusterData
+func getNodeStats(cd *common.ClusterData) (int, int, int) {
+	var maxCPU, maxMem, largestImageBytes int64
+	for _, node := range cd.Nodes {
+		cpuQuantity := node.Status.Capacity.Cpu()
+		memQuantity := node.Status.Capacity.Memory()
+		cpuMilli := cpuQuantity.MilliValue()
+		memMB := memQuantity.Value() / (1024 * 1024)
+
+		if cpuMilli > maxCPU {
+			maxCPU = cpuMilli
+		}
+		if memMB > maxMem {
+			maxMem = memMB
+		}
+		for _, image := range node.Status.Images {
+			if image.SizeBytes > largestImageBytes {
+				largestImageBytes = image.SizeBytes
+			}
+		}
+	}
+	return int(maxCPU), int(maxMem), int(largestImageBytes / (1024 * 1024))
+}
+
+func computeHasAnyAdjustments(defaults, finals map[string]map[string]string) bool {
+	for comp, defMap := range defaults {
+		finalMap, ok := finals[comp]
+		if !ok {
+			continue
+		}
+		// Check each resource key
+		for resKey, defVal := range defMap {
+			finalVal, ok := finalMap[resKey]
+			if !ok {
+				continue
+			}
+			if defVal != finalVal {
+				return true
+			}
+		}
+	}
+	return false
 }

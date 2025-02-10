@@ -110,3 +110,14 @@ func WriteToConfigMap(htmlContent, yamlContent string) {
 	// Print success messages and instructions for ConfigMap
 	printConfigMapSuccess()
 }
+
+func GenerateOutput(sizingReportData *ReportData, inCluster bool) {
+	htmlContent := BuildHTMLReport(sizingReportData, PrerequisitesReportHTML)
+	yamlContent := BuildValuesYAML(sizingReportData)
+
+	if inCluster {
+		WriteToConfigMap(htmlContent, yamlContent)
+	} else {
+		WriteToDisk(htmlContent, yamlContent)
+	}
+}

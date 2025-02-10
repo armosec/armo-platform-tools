@@ -80,12 +80,20 @@
         <header>
             <div class="title-section">
                 <h1>Kubescape Prerequisites Report</h1>
+                <p>Report generated at: {{.GenerationTime}}</p>
             </div>
             <img src="https://raw.githubusercontent.com/kubescape/kubescape/master/core/pkg/resultshandling/printer/v2/pdf/logo.png" alt="Kubescape Logo"/>
         </header>
 
         <section>
             <h2>Summary</h2>
+            <ul>
+                <li><strong>K8s Version:</strong> {{.KubernetesVersion}}</li>
+                <li><strong>Cloud Provider:</strong> {{.CloudProvider}}</li>
+                <li><strong>K8s Distribution:</strong> {{.K8sDistribution}}</li>
+                <li><strong>Total Nodes:</strong> {{.TotalNodeCount}}</li>
+                <li><strong>Total vCPUs:</strong> {{.TotalVCPUCount}}</li>
+            </ul>
             <ul>
                 <li><strong>Total Resources:</strong> {{.TotalResources}}</li>
                 <li><strong>Max Node CPU:</strong> {{.MaxNodeCPUCapacity}} m</li>
@@ -96,34 +104,35 @@
 
         <section>
             <h2>Recommended Adjustments</h2>
-            <p>If empty, no adjustments are needed.</p>
-            {{ range $component, $finalsMap := .FinalResourceAllocations }}
-                {{ $defaultsMap := index $.DefaultResourceAllocations $component }}
-                {{ $noChanges := true }}
-                {{ range $resKey, $finalVal := $finalsMap }}
-                    {{ $defaultVal := index $defaultsMap $resKey }}
-                    {{ if ne $defaultVal $finalVal }}
-                        {{ $noChanges = false }}
+            {{ if not .HasAnyAdjustments }}
+                <p>No adjustments are needed.</p>
+            {{ else }}
+                {{ range $component, $finalsMap := .FinalResourceAllocations }}
+                    {{ $defaultsMap := index $.DefaultResourceAllocations $component }}
+                    {{ $noChanges := true }}
+                    {{ range $resKey, $finalVal := $finalsMap }}
+                        {{ $defaultVal := index $defaultsMap $resKey }}
+                        {{ if ne $defaultVal $finalVal }}
+                            {{ $noChanges = false }}
+                        {{ end }}
+                    {{ end }}
+                    {{ if not $noChanges }}
+                        <h3>{{ $component }}</h3>
+                        <ul>
+                            {{ range $resKey, $finalVal := $finalsMap }}
+                                {{ $defaultVal := index $defaultsMap $resKey }}
+                                {{ if ne $defaultVal $finalVal }}
+                                    <li><strong>{{ $resKey }}:</strong> {{ $finalVal }}</li>
+                                {{ end }}
+                            {{ end }}
+                        </ul>
                     {{ end }}
                 {{ end }}
-                {{ if not $noChanges }}
-                    <h3>{{ $component }}</h3>
-                    <ul>
-                        {{ range $resKey, $finalVal := $finalsMap }}
-                            {{ $defaultVal := index $defaultsMap $resKey }}
-                            {{ if ne $defaultVal $finalVal }}
-                                <li><strong>{{ $resKey }}:</strong> {{ $finalVal }}</li>
-                            {{ end }}
-                        {{ end }}
-                    </ul>
-                {{ end }}
+                <h2>Apply Adjustments</h2>
+                <p>Use the generated <a href="./recommended-values.yaml" target="_blank">recommended-values.yaml</a> to optimize Kubescape for your cluster.</p>    
             {{ end }}
         </section>
 
-        <section>
-            <h2>Apply Adjustments</h2>
-            <p>Use the generated <a href="./recommended-values.yaml" target="_blank">recommended-values.yaml</a> to optimize Kubescape for your cluster.</p>
-        </section>
     </div>
 </body>
 </html>

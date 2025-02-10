@@ -72,13 +72,3 @@ func parseResource(val string) (float64, string) {
 	f, _ := strconv.ParseFloat(val, 64)
 	return f, ""
 }
-
-type reportData struct {
-	TotalResources          int
-	MaxNodeCPUCapacity      int
-	MaxNodeMemoryMB         int
-	LargestContainerImageMB int
-
-	DefaultResourceAllocations map[string]map[string]string
-	FinalResourceAllocations   map[string]map[string]string
-}

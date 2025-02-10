@@ -149,4 +149,13 @@ type ReportData struct {
 
 	DefaultResourceAllocations map[string]map[string]string
 	FinalResourceAllocations   map[string]map[string]string
+
+	KubernetesVersion string
+	CloudProvider     string
+	K8sDistribution   string
+	TotalNodeCount    int
+	TotalVCPUCount    int
+
+	GenerationTime    string
+	HasAnyAdjustments bool
 }
