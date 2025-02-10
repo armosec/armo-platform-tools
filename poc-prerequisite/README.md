@@ -84,7 +84,7 @@ If you want to review the prerequisites report, open the HTML file:
 
 ## Output
 ### Local Run
-    ```------------------------------------------------------------
+    ------------------------------------------------------------
     ✅ Prerequisites report generated locally!
     • /tmp/prerequisites-report.html (HTML report)
     • /tmp/recommended-values.yaml (Helm values file)
@@ -92,14 +92,14 @@ If you want to review the prerequisites report, open the HTML file:
     📋 Open /tmp/prerequisites-report.html in your browser for details.
     🚀 Use the generated recommended-values.yaml to optimize Kubescape for your cluster.
     ------------------------------------------------------------
-    ```
+    
 
 
 ### In-cluster Run
-    ```sh
+    
     kubectl logs job/kubescape-prerequisite
-    ```
-    ```------------------------------------------------------------
+    
+    ------------------------------------------------------------
     ✅ Prerequisites report stored in Kubernetes ConfigMap!
     • ConfigMap Name: prerequisites-report
     • Namespace: default
@@ -112,7 +112,7 @@ If you want to review the prerequisites report, open the HTML file:
     📋 Open prerequisites-report.html in your browser for details.
     🚀 Use the generated recommended-values.yaml to optimize Kubescape for your cluster.
     ------------------------------------------------------------
-    ```
+    
 
 ### Report example
 ![alt text](Report-example.png)
