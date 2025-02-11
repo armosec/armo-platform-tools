@@ -1,0 +1,41 @@
+name: Scan and Promote Public Docker Image
+
+on:
+  workflow_dispatch:
+
+jobs:
+  scan-and-promote:
+    runs-on: ubuntu-latest
+    steps:
+
+      # 1. Install Kubescape so we can scan the image.
+      - name: Install Kubescape
+        run: |
+          curl -s https://raw.githubusercontent.com/kubescape/kubescape/master/install.sh | /bin/bash
+
+      # 2. Run a security scan on the public image.
+      #    If vulnerabilities of high severity (or worse) are found, this step will fail.
+      #    This step will also pull the public image
+      - name: Scan Public Image with Kubescape
+        run: |
+          $HOME/.kubescape/bin/kubescape scan image nginx:latest \
+            --severity-threshold high \
+            --format sarif \
+            --output scan-results.sarif
+
+      # 3. Tag the public image for your local registry and push it.
+      #    Replace "local-registry:5000" with your actual registry hostname/port.
+      # - name: Tag and Push Image to Local Registry
+      #   run: |
+      #     LOCAL_REGISTRY=local-registry:5000  # <-- update this to your registry address
+      #     docker tag nginx:latest ${LOCAL_REGISTRY}/nginx:latest
+      #     docker push ${LOCAL_REGISTRY}/nginx:latest
+
+      # 4. Upload the scan results to GitHub Code Scanning.
+      #    This step runs even if the scan failed so you can review the SARIF file.
+      - name: Upload Scan Results to GitHub Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: scan-results.sarif
+          category: image-scan
