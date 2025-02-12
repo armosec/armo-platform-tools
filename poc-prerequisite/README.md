@@ -17,7 +17,7 @@ There are two ways to run the check:
 1. Navigate to the command directory and Execute the program:
    ```sh
    git clone https://github.com/armosec/armo-platform-tools.git
-   cd poc-prerequisite/
+   cd armo-platform-tools/poc-prerequisite/
    go run ./cmd/checker
    ```
 
