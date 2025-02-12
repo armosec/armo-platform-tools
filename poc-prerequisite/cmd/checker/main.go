@@ -16,6 +16,7 @@ func main() {
 
 	ctx := context.Background()
 
+	// Collect cluster data
 	clusterData, err := common.CollectClusterData(ctx, clientset)
 	if err != nil {
 		log.Printf("Failed to collect cluster data: %v", err)
@@ -26,5 +27,4 @@ func main() {
 
 	// Generate the output
 	common.GenerateOutput(sizingReportData, inCluster)
-
 }

@@ -4,7 +4,20 @@ import (
 	"fmt"
 	"html/template"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
+
+func BuildFullDumpYAML(cd *ClusterData) string {
+	if cd == nil {
+		return "Error building full cluster dump: cluster data is nil"
+	}
+	y, err := yaml.Marshal(cd)
+	if err != nil {
+		return fmt.Sprintf("Error building full cluster dump: %v", err)
+	}
+	return string(y)
+}
 
 func BuildHTMLReport(data *ReportData, tpl string) string {
 	tmpl, err := template.New("report").Parse(tpl)
@@ -158,4 +171,6 @@ type ReportData struct {
 
 	GenerationTime    string
 	HasAnyAdjustments bool
+
+	FullClusterData *ClusterData
 }

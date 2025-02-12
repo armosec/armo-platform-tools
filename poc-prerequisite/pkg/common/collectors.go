@@ -123,7 +123,56 @@ func CollectClusterData(ctx context.Context, clientset *kubernetes.Clientset) (*
 	}
 	cd.CronJobs = cronjobs.Items
 
+	stripManagedFields(cd)
+
 	return cd, nil
+}
+
+func stripManagedFields(cd *ClusterData) {
+	// Remove from Nodes
+	for i := range cd.Nodes {
+		cd.Nodes[i].ManagedFields = nil
+	}
+
+	// Remove from Pods
+	for i := range cd.Pods {
+		cd.Pods[i].ManagedFields = nil
+	}
+
+	// Remove from Services
+	for i := range cd.Services {
+		cd.Services[i].ManagedFields = nil
+	}
+
+	// Remove from Deployments
+	for i := range cd.Deployments {
+		cd.Deployments[i].ManagedFields = nil
+	}
+
+	// Remove from ReplicaSets
+	for i := range cd.ReplicaSets {
+		cd.ReplicaSets[i].ManagedFields = nil
+	}
+
+	// Remove from StatefulSets
+	for i := range cd.StatefulSets {
+		cd.StatefulSets[i].ManagedFields = nil
+	}
+
+	// Remove from DaemonSets
+	for i := range cd.DaemonSets {
+		cd.DaemonSets[i].ManagedFields = nil
+	}
+
+	// Remove from Jobs
+	for i := range cd.Jobs {
+		cd.Jobs[i].ManagedFields = nil
+	}
+
+	// Remove from CronJobs
+	for i := range cd.CronJobs {
+		cd.CronJobs[i].ManagedFields = nil
+	}
 }
 
 // detectCloudProvider uses node.Spec.ProviderID or node labels to guess the cloud

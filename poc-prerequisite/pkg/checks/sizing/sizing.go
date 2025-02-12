@@ -36,7 +36,6 @@ func RunSizingChecker(ctx context.Context, clientset *kubernetes.Clientset, data
 	}
 
 	return &common.ReportData{
-		// Old fields
 		TotalResources:             totalResources,
 		MaxNodeCPUCapacity:         maxCPU,
 		MaxNodeMemoryMB:            maxMem,
@@ -44,16 +43,16 @@ func RunSizingChecker(ctx context.Context, clientset *kubernetes.Clientset, data
 		DefaultResourceAllocations: defaultResourceAllocations,
 		FinalResourceAllocations:   finalResourceAllocations,
 
-		// New cluster-level fields from data.ClusterDetails
 		KubernetesVersion: data.ClusterDetails.Version,
 		CloudProvider:     data.ClusterDetails.CloudProvider,
 		K8sDistribution:   data.ClusterDetails.K8sDistribution,
 		TotalNodeCount:    data.ClusterDetails.TotalNodeCount,
 		TotalVCPUCount:    data.ClusterDetails.TotalVCPUCount,
 
-		// Timestamps & adjustments
 		GenerationTime:    time.Now().Format("2006-01-02 15:04:05"),
 		HasAnyAdjustments: computeHasAnyAdjustments(defaultResourceAllocations, finalResourceAllocations),
+
+		FullClusterData: data,
 	}
 }
 
