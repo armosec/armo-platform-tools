@@ -15,16 +15,16 @@ func main() {
 	}
 
 	ctx := context.Background()
-
-	// Collect cluster data
 	clusterData, err := common.CollectClusterData(ctx, clientset)
 	if err != nil {
 		log.Printf("Failed to collect cluster data: %v", err)
 	}
 
-	// Run the prerequisites checkes
-	sizingReportData := sizing.RunSizingChecker(ctx, clientset, clusterData)
+	sizingResult := sizing.RunSizingChecker(ctx, clientset, clusterData)
 
-	// Generate the output
-	common.GenerateOutput(sizingReportData, inCluster)
+	// Merge into a final *ReportData
+	finalReport := common.BuildReportData(clusterData, sizingResult)
+
+	// Generate output
+	common.GenerateOutput(finalReport, inCluster)
 }

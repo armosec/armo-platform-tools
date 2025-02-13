@@ -97,7 +97,7 @@ func WriteToConfigMap(htmlContent, helmValuesContent, fullDumpContent string) {
 		Data: map[string]string{
 			"prerequisites-report.html": htmlContent,
 			"recommended-values.yaml":   helmValuesContent,
-			"full-cluster-dump.yaml":    fullDumpContent, // NEW
+			"full-cluster-dump.yaml":    fullDumpContent,
 		},
 	}
 

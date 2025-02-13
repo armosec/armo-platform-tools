@@ -32,24 +32,34 @@
             text-align: left;
         }
         header h1 {
-            font-size: 24px;
+            font-size: 28px; /* slightly larger than before */
             color: #2e3f6e;
             margin: 0;
         }
-        header h2 {
-            font-size: 18px;
-            color: #000;
+        .report-generation-time {
+            font-size: 14px; /* smaller font size for generation time */
+            color: #555;
             margin: 5px 0 0 0;
         }
         header img {
             max-width: 120px;
             height: auto;
         }
-        h2 {
-            font-size: 18px;
+
+        /* Make these titles stand out more */
+        h2.main-title {
+            font-size: 24px;
             color: #2e3f6e;
             margin-top: 20px;
+            margin-bottom: 10px;
         }
+        h3 {
+            font-size: 18px; /* subheading */
+            color: #333;
+            margin-top: 15px;
+            margin-bottom: 8px;
+        }
+
         ul {
             list-style: none;
             padding: 0;
@@ -73,6 +83,12 @@
         section {
             margin-bottom: 20px;
         }
+        /* Slightly enlarge the "Recommended Adjustments" section */
+        h2.adjustments-title {
+            font-size: 24px;
+            color: #da4c2d; /* or any color you prefer */
+            margin-top: 30px;
+        }
     </style>
 </head>
 <body>
@@ -80,13 +96,19 @@
         <header>
             <div class="title-section">
                 <h1>Kubescape Prerequisites Report</h1>
-                <p>Report generated at: {{.GenerationTime}}</p>
+                <!-- Decrease the font and improve text -->
+                <p class="report-generation-time">Generated on: {{.GenerationTime}}</p>
             </div>
             <img src="https://raw.githubusercontent.com/kubescape/kubescape/master/core/pkg/resultshandling/printer/v2/pdf/logo.png" alt="Kubescape Logo"/>
         </header>
 
+        <!-- SUMMARY -->
         <section>
-            <h2>Summary</h2>
+            <!-- Bigger Summary title -->
+            <h2 class="main-title">Summary</h2>
+
+            <!-- Cluster Details subsection -->
+            <h3>Cluster Details</h3>
             <ul>
                 <li><strong>K8s Version:</strong> {{.KubernetesVersion}}</li>
                 <li><strong>Cloud Provider:</strong> {{.CloudProvider}}</li>
@@ -94,6 +116,21 @@
                 <li><strong>Total Nodes:</strong> {{.TotalNodeCount}}</li>
                 <li><strong>Total vCPUs:</strong> {{.TotalVCPUCount}}</li>
             </ul>
+
+            <!-- Nodes Configuration subsection -->
+            <h3>Nodes Configuration</h3>
+            <ul>
+                <li><strong>Node OS:</strong> {{.NodeOSSummary}}</li>
+                <li><strong>Architecture:</strong> {{.NodeArchSummary}}</li>
+                <li><strong>Kernel Versions:</strong> {{.NodeKernelVersionSummary}}</li>
+                <li><strong>OS Images:</strong> {{.NodeOSImageSummary}}</li>
+                <li><strong>Container Runtime(s):</strong> {{.NodeContainerRuntimeSummary}}</li>
+                <li><strong>Kubelet Versions:</strong> {{.NodeKubeletVersionSummary}}</li>
+                <li><strong>Kube Proxy Versions:</strong> {{.NodeKubeProxyVersionSummary}}</li>
+            </ul>
+
+            <!-- Resources subsection -->
+            <h3>Resources</h3>
             <ul>
                 <li><strong>Total Resources:</strong> {{.TotalResources}}</li>
                 <li><strong>Max Node CPU:</strong> {{.MaxNodeCPUCapacity}} m</li>
@@ -102,11 +139,18 @@
             </ul>
         </section>
 
+        <!-- RECOMMENDED ADJUSTMENTS -->
         <section>
-            <h2>Recommended Adjustments</h2>
+            <!-- Larger, more eye-catching title -->
+            <h2 class="adjustments-title">Recommended Adjustments</h2>
+
+            <!-- New subheading for the actual resource allocations -->
+            <h3>Resource Allocations</h3>
+
             {{ if not .HasAnyAdjustments }}
                 <p>No adjustments are needed.</p>
             {{ else }}
+                <!-- Loop over each component, same logic as before -->
                 {{ range $component, $finalsMap := .FinalResourceAllocations }}
                     {{ $defaultsMap := index $.DefaultResourceAllocations $component }}
                     {{ $noChanges := true }}
@@ -117,7 +161,7 @@
                         {{ end }}
                     {{ end }}
                     {{ if not $noChanges }}
-                        <h3>{{ $component }}</h3>
+                        <h4>{{ $component }}</h4>
                         <ul>
                             {{ range $resKey, $finalVal := $finalsMap }}
                                 {{ $defaultVal := index $defaultsMap $resKey }}
@@ -128,11 +172,16 @@
                         </ul>
                     {{ end }}
                 {{ end }}
-                <h2>Apply Adjustments</h2>
-                <p>Use the generated <a href="./recommended-values.yaml" target="_blank">recommended-values.yaml</a> to optimize Kubescape for your cluster.</p>    
+
+                <!-- Provide Helm instructions, as before -->
+                <h3>Apply Adjustments</h3>
+                <p>
+                  Use the generated 
+                  <a href="./recommended-values.yaml" target="_blank">recommended-values.yaml</a>
+                  to optimize Kubescape for your cluster.
+                </p>
             {{ end }}
         </section>
-
     </div>
 </body>
 </html>

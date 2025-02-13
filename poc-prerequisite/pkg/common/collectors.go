@@ -5,36 +5,10 @@ import (
 	"log"
 	"strings"
 
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
-
-// ClusterDetails stores metadata about the cluster
-type ClusterDetails struct {
-	Name            string
-	Version         string
-	CloudProvider   string
-	K8sDistribution string
-	TotalNodeCount  int
-	TotalVCPUCount  int
-}
-
-// ClusterData aggregates everything we collect from the cluster.
-type ClusterData struct {
-	Nodes          []corev1.Node
-	Pods           []corev1.Pod
-	Services       []corev1.Service
-	Deployments    []appsv1.Deployment
-	ReplicaSets    []appsv1.ReplicaSet
-	StatefulSets   []appsv1.StatefulSet
-	DaemonSets     []appsv1.DaemonSet
-	Jobs           []batchv1.Job
-	CronJobs       []batchv1.CronJob
-	ClusterDetails ClusterDetails
-}
 
 func CollectClusterData(ctx context.Context, clientset *kubernetes.Clientset) (*ClusterData, error) {
 	cd := &ClusterData{}
@@ -53,6 +27,8 @@ func CollectClusterData(ctx context.Context, clientset *kubernetes.Clientset) (*
 		return cd, err
 	}
 	cd.Nodes = nodes.Items
+
+	gatherNodeInfoSummaries(&cd.NodeInfoSummaries, nodes.Items)
 
 	// 3) Detect Cloud Provider & Distribution from nodes
 	cd.ClusterDetails.CloudProvider = detectCloudProvider(nodes.Items)
@@ -230,4 +206,27 @@ func detectK8sDistribution(nodes []corev1.Node) string {
 		}
 	}
 	return "Unknown"
+}
+
+func gatherNodeInfoSummaries(summaries *NodeInfoSummary, nodes []corev1.Node) {
+	// Initialize all maps
+	summaries.OperatingSystemCounts = make(map[string]int)
+	summaries.ArchitectureCounts = make(map[string]int)
+	summaries.KernelVersionCounts = make(map[string]int)
+	summaries.OSImageCounts = make(map[string]int)
+	summaries.ContainerRuntimeVersionCounts = make(map[string]int)
+	summaries.KubeletVersionCounts = make(map[string]int)
+	summaries.KubeProxyVersionCounts = make(map[string]int)
+
+	for _, node := range nodes {
+		ni := node.Status.NodeInfo
+
+		summaries.OperatingSystemCounts[ni.OperatingSystem]++
+		summaries.ArchitectureCounts[ni.Architecture]++
+		summaries.KernelVersionCounts[ni.KernelVersion]++
+		summaries.OSImageCounts[ni.OSImage]++
+		summaries.ContainerRuntimeVersionCounts[ni.ContainerRuntimeVersion]++
+		summaries.KubeletVersionCounts[ni.KubeletVersion]++
+		summaries.KubeProxyVersionCounts[ni.KubeProxyVersion]++
+	}
 }

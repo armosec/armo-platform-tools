@@ -4,9 +4,46 @@ import (
 	"fmt"
 	"html/template"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+func BuildReportData(cd *ClusterData, sr *SizingResult) *ReportData {
+	report := &ReportData{
+		// existing merges:
+		TotalResources:             sr.TotalResources,
+		MaxNodeCPUCapacity:         sr.MaxNodeCPUCapacity,
+		MaxNodeMemoryMB:            sr.MaxNodeMemoryMB,
+		LargestContainerImageMB:    sr.LargestContainerImageMB,
+		DefaultResourceAllocations: sr.DefaultResourceAllocations,
+		FinalResourceAllocations:   sr.FinalResourceAllocations,
+		HasAnyAdjustments:          sr.HasAnyAdjustments,
+
+		KubernetesVersion: cd.ClusterDetails.Version,
+		CloudProvider:     cd.ClusterDetails.CloudProvider,
+		K8sDistribution:   cd.ClusterDetails.K8sDistribution,
+		TotalNodeCount:    cd.ClusterDetails.TotalNodeCount,
+		TotalVCPUCount:    cd.ClusterDetails.TotalVCPUCount,
+
+		GenerationTime:  time.Now().Format("2006-01-02 15:04:05"),
+		FullClusterData: cd,
+	}
+
+	// Now populate the node info summary fields:
+	totalNodes := cd.ClusterDetails.TotalNodeCount
+	ni := cd.NodeInfoSummaries
+
+	report.NodeOSSummary = summarizeMap(ni.OperatingSystemCounts, totalNodes)
+	report.NodeArchSummary = summarizeMap(ni.ArchitectureCounts, totalNodes)
+	report.NodeKernelVersionSummary = summarizeMap(ni.KernelVersionCounts, totalNodes)
+	report.NodeOSImageSummary = summarizeMap(ni.OSImageCounts, totalNodes)
+	report.NodeContainerRuntimeSummary = summarizeMap(ni.ContainerRuntimeVersionCounts, totalNodes)
+	report.NodeKubeletVersionSummary = summarizeMap(ni.KubeletVersionCounts, totalNodes)
+	report.NodeKubeProxyVersionSummary = summarizeMap(ni.KubeProxyVersionCounts, totalNodes)
+
+	return report
+}
 
 func BuildFullDumpYAML(cd *ClusterData) string {
 	if cd == nil {
@@ -154,23 +191,22 @@ func buildComponentSection(componentName, subSection string, fields map[string]s
 	return sb.String()
 }
 
-type ReportData struct {
-	TotalResources          int
-	MaxNodeCPUCapacity      int
-	MaxNodeMemoryMB         int
-	LargestContainerImageMB int
+func summarizeMap(counts map[string]int, totalCount int) string {
+	if len(counts) == 1 {
+		// If there's exactly one key, we might just return that key (or "Linux (7)" depending on preference)
+		for key, c := range counts {
+			if c == totalCount {
+				return key // e.g., all 10 are "Linux"
+			}
+			// If there's a single key but it doesn't match totalCount, display "Linux (7)"
+			return fmt.Sprintf("%s (%d)", key, c)
+		}
+	}
 
-	DefaultResourceAllocations map[string]map[string]string
-	FinalResourceAllocations   map[string]map[string]string
-
-	KubernetesVersion string
-	CloudProvider     string
-	K8sDistribution   string
-	TotalNodeCount    int
-	TotalVCPUCount    int
-
-	GenerationTime    string
-	HasAnyAdjustments bool
-
-	FullClusterData *ClusterData
+	// multiple distinct keys: "Linux (7), Windows (3)"
+	var parts []string
+	for key, c := range counts {
+		parts = append(parts, fmt.Sprintf("%s (%d)", key, c))
+	}
+	return strings.Join(parts, ", ")
 }

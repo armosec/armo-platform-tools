@@ -3,13 +3,12 @@ package sizing
 
 import (
 	"context"
-	"time"
 
 	"github.com/armosec/armo-platform-tools/poc-prerequisite/pkg/common"
 	"k8s.io/client-go/kubernetes"
 )
 
-func RunSizingChecker(ctx context.Context, clientset *kubernetes.Clientset, data *common.ClusterData) *common.ReportData {
+func RunSizingChecker(ctx context.Context, clientset *kubernetes.Clientset, data *common.ClusterData) *common.SizingResult {
 	totalResources := countAllResources(data)
 	maxCPU, maxMem, largestImageMB := getNodeStats(data)
 
@@ -35,24 +34,14 @@ func RunSizingChecker(ctx context.Context, clientset *kubernetes.Clientset, data
 		},
 	}
 
-	return &common.ReportData{
+	return &common.SizingResult{
 		TotalResources:             totalResources,
 		MaxNodeCPUCapacity:         maxCPU,
 		MaxNodeMemoryMB:            maxMem,
 		LargestContainerImageMB:    largestImageMB,
 		DefaultResourceAllocations: defaultResourceAllocations,
 		FinalResourceAllocations:   finalResourceAllocations,
-
-		KubernetesVersion: data.ClusterDetails.Version,
-		CloudProvider:     data.ClusterDetails.CloudProvider,
-		K8sDistribution:   data.ClusterDetails.K8sDistribution,
-		TotalNodeCount:    data.ClusterDetails.TotalNodeCount,
-		TotalVCPUCount:    data.ClusterDetails.TotalVCPUCount,
-
-		GenerationTime:    time.Now().Format("2006-01-02 15:04:05"),
-		HasAnyAdjustments: computeHasAnyAdjustments(defaultResourceAllocations, finalResourceAllocations),
-
-		FullClusterData: data,
+		HasAnyAdjustments:          computeHasAnyAdjustments(defaultResourceAllocations, finalResourceAllocations),
 	}
 }
 
