@@ -160,16 +160,14 @@
 
         <!-- RECOMMENDED ADJUSTMENTS -->
         <section>
-            <!-- Larger, more eye-catching title -->
             <h2 class="main-title">Recommended Adjustments</h2>
-
-            <!-- New subheading for the actual resource allocations -->
-            <h3>Resource Allocations</h3>
-
+        
             {{ if not .HasAnyAdjustments }}
+                <!-- If no adjustments are needed, just show a paragraph. -->
                 <p>No adjustments are needed.</p>
             {{ else }}
-                <!-- Loop over each component, same logic as before -->
+                <!-- Otherwise, show the Resource Allocations heading and details. -->
+                <h3>Resource Allocations</h3>
                 {{ range $component, $finalsMap := .FinalResourceAllocations }}
                     {{ $defaultsMap := index $.DefaultResourceAllocations $component }}
                     {{ $noChanges := true }}
@@ -191,13 +189,12 @@
                         </ul>
                     {{ end }}
                 {{ end }}
-
-                <!-- Provide Helm instructions, as before -->
+        
                 <h3>Apply Adjustments</h3>
                 <p>
-                  Use the generated 
-                  <a href="./recommended-values.yaml" target="_blank">recommended-values.yaml</a>
-                  to optimize Kubescape for your cluster.
+                    Use the generated
+                    <a href="./recommended-values.yaml" target="_blank">recommended-values.yaml</a>
+                    to optimize Kubescape for your cluster.
                 </p>
             {{ end }}
         </section>
