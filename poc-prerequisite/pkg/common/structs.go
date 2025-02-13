@@ -84,4 +84,6 @@ type ReportData struct {
 	NodeKubeProxyVersionSummary string
 
 	FullClusterData *ClusterData
+
+	PVProvisioningMessage string
 }

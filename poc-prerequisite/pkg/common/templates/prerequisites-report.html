@@ -138,11 +138,30 @@
                 <li><strong>Largest Image:</strong> {{.LargestContainerImageMB}} MB</li>
             </ul>
         </section>
+        
+        <section>
+            <h2 class="main-title">Checks Results</h2>
+        
+            <ul>
+                <li>
+                    <strong>PV Provisioning Check:</strong>
+                    {{- /* Conditionally color the result */ -}}
+                    {{- if eq .PVProvisioningMessage "Passed" -}}
+                        <span style="color: darkgreen;"> {{.PVProvisioningMessage}}</span>
+                    {{- else if eq .PVProvisioningMessage "Failed" -}}
+                        <span style="color: darkred;"> {{.PVProvisioningMessage}}</span>
+                    {{- else -}}
+                        <!-- For partial (e.g. "Passed(6)/Failed(1)") -->
+                        <span style="color: darkorange;"> {{.PVProvisioningMessage}}</span>
+                    {{- end}}
+                </li>
+            </ul>
+        </section>
 
         <!-- RECOMMENDED ADJUSTMENTS -->
         <section>
             <!-- Larger, more eye-catching title -->
-            <h2 class="adjustments-title">Recommended Adjustments</h2>
+            <h2 class="main-title">Recommended Adjustments</h2>
 
             <!-- New subheading for the actual resource allocations -->
             <h3>Resource Allocations</h3>
