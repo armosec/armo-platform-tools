@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <title>Kubescape Prerequisites Checker: Prerequisites Report</title>
+  <style>
+    /* Import a modern font */
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      margin: 0;
+      background: #f9f9f9; /* restored previous background color */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: #444;
+    }
+
+    .container {
+      background: #fff;
+      max-width: 900px;
+      width: 100%;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #e5e5e5;
+      padding-bottom: 15px;
+      margin-bottom: 25px;
+    }
+
+    header h1 {
+      font-size: 30px;
+      color: #2e3f6e;
+      margin: 0;
+    }
+
+    .report-generation-time {
+      font-size: 14px;
+      color: #888;
+      margin-top: 5px;
+    }
+
+    header img {
+      max-width: 120px;
+      height: auto;
+    }
+
+    h2.main-title {
+      font-size: 26px;
+      color: #2e3f6e;
+      margin-top: 30px;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+    }
+
+    /* Updated subtitle style for a nicer look and more compact spacing */
+    h3 {
+      font-size: 18px;
+      color: #2e3f6e;
+      font-weight: 500;
+      margin: 5px 0 8px 0;  /* reduced spacing */
+      padding-bottom: 4px;
+      border-bottom: 1px solid #2e3f6e;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    ul li {
+      margin: 8px 0;
+      font-size: 15px;
+    }
+
+    code {
+      background-color: #f4f4f4;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+
+    pre {
+      background: #f4f4f4;
+      padding: 15px;
+      border-radius: 5px;
+      text-align: left;
+      font-size: 15px;
+      overflow-x: auto;
+    }
+
+    /* Summary Frames Layout */
+    .summary-frames {
+      display: flex;
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .summary-frame {
+      flex: 1;
+      background: #fafafa;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #e5e5e5;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .summary-frame:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    @media (max-width: 768px) {
+      .summary-frames {
+        flex-direction: column;
+      }
+    }
+
+    section {
+      margin-bottom: 30px;
+    }
+
+    a {
+      color: #2e3f6e;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="title-section">
+        <h1>Kubescape Prerequisites Report</h1>
+        <p class="report-generation-time">Generated on: {{.GenerationTime}}</p>
+      </div>
+      <img src="https://raw.githubusercontent.com/kubescape/kubescape/master/core/pkg/resultshandling/printer/v2/pdf/logo.png" alt="Kubescape Logo"/>
+    </header>
+
+    <!-- SUMMARY -->
+    <section>
+      <h2 class="main-title">Summary</h2>
+      <div class="summary-frames">
+        <!-- Cluster Details Frame -->
+        <div class="summary-frame">
+          <h3>Cluster Details</h3>
+          <ul>
+            <li><strong>K8s Version:</strong> {{.KubernetesVersion}}</li>
+            <li><strong>Cloud Provider:</strong> {{.CloudProvider}}</li>
+            <li><strong>K8s Distribution:</strong> {{.K8sDistribution}}</li>
+            <li><strong>Total Nodes:</strong> {{.TotalNodeCount}}</li>
+            <li><strong>Total vCPUs:</strong> {{.TotalVCPUCount}}</li>
+          </ul>
+        </div>
+
+        <!-- Nodes Configuration Frame -->
+        <div class="summary-frame">
+          <h3>Nodes Configuration</h3>
+          <ul>
+            <li><strong>Node OS:</strong> {{.NodeOSSummary}}</li>
+            <li><strong>Architecture:</strong> {{.NodeArchSummary}}</li>
+            <li><strong>Kernel Versions:</strong> {{.NodeKernelVersionSummary}}</li>
+            <li><strong>OS Images:</strong> {{.NodeOSImageSummary}}</li>
+            <li><strong>Container Runtime(s):</strong> {{.NodeContainerRuntimeSummary}}</li>
+            <li><strong>Kubelet Versions:</strong> {{.NodeKubeletVersionSummary}}</li>
+            <li><strong>Kube Proxy Versions:</strong> {{.NodeKubeProxyVersionSummary}}</li>
+          </ul>
+        </div>
+
+        <!-- Resources Frame -->
+        <div class="summary-frame">
+          <h3>Resources</h3>
+          <ul>
+            <li><strong>Total Resources:</strong> {{.TotalResources}}</li>
+            <li><strong>Max Node CPU:</strong> {{.MaxNodeCPUCapacity}} m</li>
+            <li><strong>Max Node Memory:</strong> {{.MaxNodeMemoryMB}} Mi</li>
+            <li><strong>Largest Image:</strong> {{.LargestContainerImageMB}} MB</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+    
+    <!-- Checks Results -->
+    <section>
+      <h2 class="main-title">Checks Results</h2>
+      <ul>
+        <li>
+          <strong>PV Provisioning Check:</strong>
+          {{- if eq .PVProvisioningMessage "Passed" -}}
+            <span style="color: darkgreen;"> {{.PVProvisioningMessage}}</span>
+          {{- else if eq .PVProvisioningMessage "Failed" -}}
+            <span style="color: darkred;"> {{.PVProvisioningMessage}}</span>
+          {{- else -}}
+            <span style="color: darkorange;"> {{.PVProvisioningMessage}}</span>
+          {{- end}}
+        </li>
+      </ul>
+    </section>
+    
+    <!-- Recommended Adjustments -->
+    <section>
+      <h2 class="main-title">Recommended Adjustments</h2>
+      {{ if not .HasAnyAdjustments }}
+        <p>No adjustments are needed.</p>
+      {{ else }}
+        <h3>Resource Allocations</h3>
+        {{ range $component, $finalsMap := .FinalResourceAllocations }}
+          {{ $defaultsMap := index $.DefaultResourceAllocations $component }}
+          {{ $noChanges := true }}
+          {{ range $resKey, $finalVal := $finalsMap }}
+            {{ $defaultVal := index $defaultsMap $resKey }}
+            {{ if ne $defaultVal $finalVal }}
+              {{ $noChanges = false }}
+            {{ end }}
+          {{ end }}
+          {{ if not $noChanges }}
+            <h4>{{ $component }}</h4>
+            <ul>
+              {{ range $resKey, $finalVal := $finalsMap }}
+                {{ $defaultVal := index $defaultsMap $resKey }}
+                {{ if ne $defaultVal $finalVal }}
+                  <li><strong>{{ $resKey }}:</strong> {{ $finalVal }}</li>
+                {{ end }}
+              {{ end }}
+            </ul>
+          {{ end }}
+        {{ end }}
+
+        <h3>Apply Adjustments</h3>
+        <p>
+          Use the generated
+          <a href="./recommended-values.yaml" target="_blank">recommended-values.yaml</a>
+          to optimize Kubescape for your cluster.
+        </p>
+      {{ end }}
+    </section>
+  </div>
+</body>
+</html>

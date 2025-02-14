@@ -2,8 +2,10 @@ name: NSA Compliance Scan
 
 on:
   push:
+    branches:
+      - main
     paths:
-      - "poc-prerequisite/kubescape-sizing-checker/k8s-manifest.yaml"
+      - "poc-prerequisite/k8s-manifest.yaml"
   workflow_dispatch:
 
 jobs:
@@ -20,7 +22,7 @@ jobs:
       - name: Run NSA Compliance scan
         run: |
           $HOME/.kubescape/bin/kubescape scan framework nsa \
-            ./poc-prerequisite/kubescape-sizing-checker/k8s-manifest.yaml \
+            ./poc-prerequisite/k8s-manifest.yaml \
             --severity-threshold high \
             --format sarif \
             --output results-nsa.sarif
