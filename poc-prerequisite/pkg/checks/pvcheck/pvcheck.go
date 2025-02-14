@@ -26,7 +26,7 @@ type PVCheckResult struct {
 	PassedCount   int
 	FailedCount   int
 	TotalNodes    int
-	ResultMessage string // Only "Passed" or "Failed"
+	ResultMessage string // Only "Passed", "Failed", or "Skipped"
 }
 
 // RunPVProvisioningCheck first verifies that dynamic provisioning is likely available
@@ -185,7 +185,6 @@ func createNamespace(ctx context.Context, clientset *kubernetes.Clientset, name 
 
 func createTestPVC(ctx context.Context, clientset *kubernetes.Clientset, namespace, pvcName, size string) error {
 	// Using no 'storageClassName' => let the cluster pick the default SC
-	// Make sure the size is at least 1Gi; here we're specifically using 5Gi as requested
 	qty, err := resource.ParseQuantity(size)
 	if err != nil {
 		return fmt.Errorf("invalid size quantity %q: %w", size, err)
@@ -204,7 +203,6 @@ func createTestPVC(ctx context.Context, clientset *kubernetes.Clientset, namespa
 					corev1.ResourceStorage: qty,
 				},
 			},
-			// storageClassName is omitted => uses default SC
 		},
 	}
 	_, createErr := clientset.CoreV1().PersistentVolumeClaims(namespace).Create(ctx, pvc, metav1.CreateOptions{})
@@ -217,7 +215,6 @@ func createTestPod(ctx context.Context, clientset *kubernetes.Clientset, namespa
 			Name: podName,
 		},
 		Spec: corev1.PodSpec{
-			// No NodeName => let the scheduler pick
 			RestartPolicy: corev1.RestartPolicyNever,
 			Containers: []corev1.Container{
 				{
