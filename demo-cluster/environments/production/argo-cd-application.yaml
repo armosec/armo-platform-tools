@@ -11,7 +11,7 @@ spec:
     repoURL: "https://argoproj.github.io/argo-helm"
     chart: "argo-cd"
     # Check https://artifacthub.io/packages/helm/argo/argo-cd for available versions.
-    targetRevision: "7.8.1" 
+    targetRevision: "7.8.2" 
     helm:
       releaseName: argocd 
       values: | 
