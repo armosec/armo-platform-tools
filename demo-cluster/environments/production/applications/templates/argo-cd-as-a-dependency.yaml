@@ -1,14 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: cluster-bootstrap
+  name: argocd-infra
   namespace: argocd
 spec:
   destination:
     namespace: argocd
     server: https://kubernetes.default.svc
   source:
+    helm:
+      valueFiles:
+        - values.yaml
     repoURL: "https://github.com/armosec/armo-platform-tools.git"
     targetRevision: main
-    path: demo-cluster/environments/production/applications
+    path: demo-cluster/environments/production/argocd-infra
   project: default
