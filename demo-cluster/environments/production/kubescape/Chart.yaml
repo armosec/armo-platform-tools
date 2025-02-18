@@ -1,0 +1,10 @@
+apiVersion: v2
+description: kubescape
+name: kubescape
+version: x.x.x
+
+dependencies:
+  - name: kubescape
+    # latest
+    version: x.x.x
+    repository: https://kubescape.github.io/helm-charts/
