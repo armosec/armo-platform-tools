@@ -2,6 +2,7 @@ kubescape:
   clusterName: demo-cluster
   server: api.armosec.io
   account: d6b0d1ee-4027-4124-bb7c-73ebd3d3e447
+  accessKey: 123
   alertCRD:
     installDefault: true
   capabilities:
