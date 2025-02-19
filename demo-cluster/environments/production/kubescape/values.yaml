@@ -2,7 +2,7 @@ kubescape:
   clusterName: demo-cluster
   server: api.armosec.io
   credentials:
-    cloudSecret: true
+    cloudSecret: cloud-secret
   alertCRD:
     installDefault: true
   capabilities:
