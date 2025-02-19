@@ -28,3 +28,13 @@ spec:
       jsonPointers:
         - /data
         - /metadata
+    - group: batch
+      kind: CronJob
+      name: kubescape-scheduler
+      jsonPointers:
+        - /spec/schedule
+    - group: batch
+      kind: CronJob
+      name: kubevuln-scheduler
+      jsonPointers:
+        - /spec/schedule
