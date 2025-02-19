@@ -143,7 +143,6 @@ check_kubescape_components() {
     components=(
         storage
         node-agent
-        gateway
         operator
         otel-collector
         synchronizer
