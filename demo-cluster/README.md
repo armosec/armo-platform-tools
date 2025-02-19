@@ -1,6 +1,6 @@
 # Armo demo-cluster Deployment with ArgoCD
 
-## Setup Repository
+## Clone Repository
 ```sh
 git clone https://github.com/armosec/armo-platform-tools.git
 cd armo-platform-tools/demo-cluster
