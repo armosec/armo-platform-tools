@@ -1,5 +1,11 @@
 # Armo demo-cluster Deployment with ArgoCD
 
+## Setup Repository
+```sh
+git clone https://github.com/armosec/armo-platform-tools.git
+cd armo-platform-tools/demo-cluster
+```
+
 ## Deploy ArgoCD (Without Applications)
 ```sh
 pushd environments/production/argocd-infra
