@@ -12,10 +12,19 @@ spec:
       valueFiles:
         - original-values.yaml
         - values.yaml
+      parameters:
+        - name: clusterName
+          value: 'demo-cluster-test2'
+          required: true
+          type: string
     repoURL: "https://github.com/armosec/armo-platform-tools.git"
     targetRevision: dev
     path: demo-cluster/environments/production/kubescape
   project: default
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
   ignoreDifferences:
     - group: core
       kind: ConfigMap
