@@ -10,8 +10,8 @@ spec:
   source:
     helm:
       valueFiles:
-        - values.yaml
         - original-values.yaml
+        - values.yaml
     repoURL: "https://github.com/armosec/armo-platform-tools.git"
     targetRevision: dev
     path: demo-cluster/environments/production/kubescape
