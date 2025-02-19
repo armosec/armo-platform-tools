@@ -15,3 +15,11 @@ spec:
     targetRevision: dev
     path: demo-cluster/environments/production/kubescape
   project: default
+  ignoreDifferences:
+    - group: core
+      kind: ConfigMap
+      name: ks-cloud-config
+      namespace: kubescape
+      jsonPointers:
+        - /data
+        - /metadata
