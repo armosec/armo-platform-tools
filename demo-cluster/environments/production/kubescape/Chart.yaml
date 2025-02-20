@@ -8,3 +8,4 @@ dependencies:
     # latest
     version: x.x.x
     repository: https://kubescape.github.io/helm-charts/
+    alias: kubescape
