@@ -53,6 +53,9 @@ kubectl port-forward service/argocd-server -n argocd 8080:443
 
 Now, access ArgoCD at [https://localhost:8080](https://localhost:8080) and log in using the retrieved password.
 
+## Disclaimer
+Before syncing, make sure to set the value of `kubescape.imagePullSecret.password`.
+
 ---
 
 ### Notes
