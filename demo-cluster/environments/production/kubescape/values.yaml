@@ -1,4 +1,4 @@
-kubescape:
+kubescapealias:
   clusterName: demo-cluster
   server: api.armosec.io
   credentials:
