@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kubescape
+  namespace: argocd
+spec:
+  destination:
+    namespace: kubescape
+    server: https://kubernetes.default.svc
+  source:
+    helm:
+      valueFiles:
+        - values.yaml
+    repoURL: "https://github.com/armosec/armo-platform-tools.git"
+    targetRevision: dev
+    path: demo-cluster/environments/production/kubescape
+  project: default
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+  ignoreDifferences:
+    - group: core
+      kind: ConfigMap
+      name: ks-cloud-config
+      namespace: kubescape
+      jsonPointers:
+        - /data
+        - /metadata
+    - group: batch
+      kind: CronJob
+      name: kubescape-scheduler
+      jsonPointers:
+        - /spec/schedule
+    - group: batch
+      kind: CronJob
+      name: kubevuln-scheduler
+      jsonPointers:
+        - /spec/schedule
