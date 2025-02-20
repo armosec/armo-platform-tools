@@ -26,7 +26,7 @@ kubectl create secret generic cloud-secret \
   -n kubescape
 ```
 
-### Exclude Kubescape Resources from ArgoCD Scan (Optional)
+### Exclude Kubescape Resources from ArgoCD tracking (Optional)
 ```sh
 kubectl patch configmap argocd-cm -n argocd --type merge -p '{
     "data": {
@@ -37,9 +37,9 @@ kubectl patch configmap argocd-cm -n argocd --type merge -p '{
 
 ## Deploy the App-of-Apps
 This step sets up the application structure:
-1. Deploys the **App-of-Apps**, which manages itself.
-2. Registers ArgoCD, which was manually installed earlier.
-
+1. Deploys the App-of-Apps, which manages itself.
+2. Takes control of the existing ArgoCD installation, enabling it to manage itself from this point onward.
+3. Deploys and manages Kubescape's agent for security monitoring.
 ```sh
 kubectl apply -f environments/production/applications/templates/app-of-apps.yaml
 ```
@@ -56,7 +56,6 @@ Now, access ArgoCD at [https://localhost:8080](https://localhost:8080) and log i
 ---
 
 ### Notes
-- Ensure Helm dependencies are updated before deploying ArgoCD.
 - The `resource.exclusions` patch prevents ArgoCD from tracking Kubescape resources.
 - The App-of-Apps structure allows ArgoCD to manage itself and future applications seamlessly.
 
