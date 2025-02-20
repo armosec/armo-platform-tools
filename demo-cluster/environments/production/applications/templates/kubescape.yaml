@@ -16,9 +16,8 @@ spec:
           value: 'demo-cluster-new'
           required: true
           type: string
-    repoURL: 'https://github.com/kubescape/helm-charts'
-    targetRevision: main
-    path: charts/kubescape-operator
+    repoURL: 'https://kubescape.github.io/helm-charts'
+    chart: kubescape-operator
   project: default
   syncPolicy:
     syncOptions:
