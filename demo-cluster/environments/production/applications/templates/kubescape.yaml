@@ -18,7 +18,7 @@ spec:
           type: string
     repoURL: 'https://kubescape.github.io/helm-charts'
     chart: kubescape-operator
-    targetRevision: x.x.x
+    targetRevision: 1.25.6
   project: default
   syncPolicy:
     syncOptions:
