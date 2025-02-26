@@ -20,13 +20,6 @@ spec:
       - CreateNamespace=true
       - RespectIgnoreDifferences=true
   ignoreDifferences:
-    - group: core
-      kind: ConfigMap
-      name: ks-cloud-config
-      namespace: kubescape
-      jsonPointers:
-        - /data
-        - /metadata
     - group: batch
       kind: CronJob
       name: kubescape-scheduler
