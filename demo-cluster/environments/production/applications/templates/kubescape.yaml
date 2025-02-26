@@ -13,7 +13,7 @@ spec:
     targetRevision: x.x.x
     helm:
       valueFiles:
-        - "https://raw.githubusercontent.com/armosec/armo-platform-tools/refs/heads/main/demo-cluster/environments/production/kubescape/values.yaml"
+        - "https://raw.githubusercontent.com/armosec/armo-platform-tools/main/demo-cluster/environments/production/kubescape/values.yaml"
   project: default
   syncPolicy:
     syncOptions:
