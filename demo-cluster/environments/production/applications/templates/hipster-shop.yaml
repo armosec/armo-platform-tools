@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hipster-shop
+  namespace: argocd
+spec:
+  destination:
+    namespace: hipster-shop
+    server: 'https://kubernetes.default.svc'
+  source:
+    repoURL: 'https://github.com/lightstep/hipster-shop.git'
+    targetRevision: HEAD
+    path: kubernetes-manifests
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  project: default
