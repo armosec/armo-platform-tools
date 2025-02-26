@@ -12,9 +12,6 @@ spec:
     targetRevision: master
     path: guestbook
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
         - CreateNamespace=true
   project: default
