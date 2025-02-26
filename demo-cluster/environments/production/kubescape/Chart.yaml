@@ -6,6 +6,6 @@ version: 0.0.1
 dependencies:
   - name: kubescape-operator
     # latest
-    version: 1.25.7
+    version: x.x.x
     repository: https://kubescape.github.io/helm-charts/
     alias: kubescape

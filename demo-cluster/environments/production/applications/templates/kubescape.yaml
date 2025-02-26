@@ -12,7 +12,7 @@ spec:
       valueFiles:
         - values.yaml
     repoURL: "https://github.com/armosec/armo-platform-tools.git"
-    targetRevision: dev
+    targetRevision: main
     path: demo-cluster/environments/production/kubescape
   project: default
   syncPolicy:
@@ -20,6 +20,13 @@ spec:
       - CreateNamespace=true
       - RespectIgnoreDifferences=true
   ignoreDifferences:
+    - group: core
+      kind: ConfigMap
+      name: ks-cloud-config
+      namespace: kubescape
+      jsonPointers:
+        - /data
+        - /metadata
     - group: batch
       kind: CronJob
       name: kubescape-scheduler
