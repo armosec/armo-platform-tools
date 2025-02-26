@@ -8,12 +8,12 @@ spec:
     namespace: kubescape
     server: https://kubernetes.default.svc
   source:
+    repoURL: https://kubescape.github.io/helm-charts/
+    chart: "kubescape-operator"
+    targetRevision: x.x.x
     helm:
       valueFiles:
-        - values.yaml
-    repoURL: "https://github.com/armosec/armo-platform-tools.git"
-    targetRevision: dev
-    path: demo-cluster/environments/production/kubescape
+        - "https://raw.githubusercontent.com/armosec/armo-platform-tools/refs/heads/main/demo-cluster/environments/production/kubescape/values.yaml"
   project: default
   syncPolicy:
     syncOptions:
