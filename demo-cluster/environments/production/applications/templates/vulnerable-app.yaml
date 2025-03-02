@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: "https://github.com/armosec/armo-platform-tools.git"
-    targetRevision: main
+    targetRevision: dev
     path: environments/production/applications/vulnerable-app
   destination:
     server: https://kubernetes.default.svc
