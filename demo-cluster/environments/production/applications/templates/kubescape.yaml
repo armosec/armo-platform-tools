@@ -16,6 +16,9 @@ spec:
     path: demo-cluster/environments/production/kubescape
   project: default
   syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
       - RespectIgnoreDifferences=true
@@ -37,3 +40,7 @@ spec:
       name: kubevuln-scheduler
       jsonPointers:
         - /spec/schedule
+    - group: apiregistration.k8s.io
+      kind: APIService
+      jsonPointers:
+        - /spec/insecureSkipTLSVerify
