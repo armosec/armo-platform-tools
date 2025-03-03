@@ -68,10 +68,3 @@ kubectl port-forward service/argocd-server -n argocd 8080:443
 ```
 
 Now, access ArgoCD at [https://localhost:8080](https://localhost:8080) and log in using the retrieved password.
-
----
-
-### Notes
-- The `resource.exclusions` patch prevents ArgoCD from tracking Kubescape resources.
-- The App-of-Apps structure allows ArgoCD to manage itself and future applications seamlessly.
-
