@@ -60,6 +60,14 @@ kubectl rollout restart deployment -n argocd
 kubectl rollout restart statefulset -n argocd
 ```
 
+## Trigger ADR Detection with the Attack Simulator (Optional)
+```sh
+armo-platform-tools/attack-simulator/
+chmod +x attack-simulator.sh
+./attack-simulator.sh
+popd
+```
+
 ## Connect to ArgoCD
 Retrieve the initial admin password and port-forward the ArgoCD UI:
 ```sh
