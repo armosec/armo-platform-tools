@@ -26,6 +26,15 @@ kubectl create secret generic cloud-secret \
   -n kubescape
 ```
 
+### Set ARMO’s Private Registry Password for Image Pulling
+```sh
+yq eval '.kubescape.imagePullSecret.password = "<set_the_password>"' -i environments/production/kubescape/values.yaml
+```
+or
+```sh
+sed -i '' 's|password: .*|password: <set_the_password>|' environments/production/kubescape/values.yaml
+```
+
 ### Exclude Kubescape Resources from ArgoCD tracking (Optional)
 ```sh
 kubectl patch configmap argocd-cm -n argocd --type merge -p '{
@@ -36,12 +45,19 @@ kubectl patch configmap argocd-cm -n argocd --type merge -p '{
 ```
 
 ## Deploy the App-of-Apps
+```sh
+kubectl apply -f environments/production/applications/templates/app-of-apps.yaml
+```
 This step sets up the application structure:
 1. Deploys the App-of-Apps, which manages itself.
 2. Takes control of the existing ArgoCD installation, enabling it to manage itself from this point onward.
 3. Deploys and manages Kubescape's agent for security monitoring.
+4. Deploys all of the apps for the demo
+
+## Restart ArgoCD components to ensure proper scanning by ARMO
 ```sh
-kubectl apply -f environments/production/applications/templates/app-of-apps.yaml
+kubectl rollout restart deployment -n argocd
+kubectl rollout restart statefulset -n argocd
 ```
 
 ## Connect to ArgoCD
@@ -52,9 +68,6 @@ kubectl port-forward service/argocd-server -n argocd 8080:443
 ```
 
 Now, access ArgoCD at [https://localhost:8080](https://localhost:8080) and log in using the retrieved password.
-
-## Disclaimer
-Before syncing, make sure to set the value of `kubescape.imagePullSecret.password`.
 
 ---
 
