@@ -40,7 +40,3 @@ spec:
       name: kubevuln-scheduler
       jsonPointers:
         - /spec/schedule
-    - group: apiregistration.k8s.io
-      kind: APIService
-      jsonPointers:
-        - /spec/insecureSkipTLSVerify
