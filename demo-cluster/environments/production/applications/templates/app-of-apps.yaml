@@ -9,7 +9,7 @@ spec:
     server: https://kubernetes.default.svc
   source:
     repoURL: "https://github.com/armosec/armo-platform-tools.git"
-    targetRevision: dev
+    targetRevision: main
     path: demo-cluster/environments/production/applications
   project: default
   syncPolicy:
