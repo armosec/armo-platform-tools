@@ -12,3 +12,7 @@ spec:
     targetRevision: main
     path: demo-cluster/environments/production/applications
   project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
