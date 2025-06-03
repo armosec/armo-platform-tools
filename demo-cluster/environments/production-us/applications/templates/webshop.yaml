@@ -1,0 +1,92 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: microservices-demo
+  namespace: argocd
+  labels:
+    app: microservices-demo
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/GoogleCloudPlatform/microservices-demo
+    targetRevision: main
+    path: helm-chart
+    helm:
+      # Custom values for the deployment
+      values: |
+        # Frontend service configuration
+        frontend:
+          service:
+            type: LoadBalancer
+            # Uncomment and set if you want a specific external IP
+            # loadBalancerIP: "your-external-ip"
+
+          # Set resource limits
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+
+        # Enable service mesh (if using Istio)
+        # serviceAccount:
+        #   annotations:
+        #     iam.gke.io/gcp-service-account: "your-gsa@project.iam.gserviceaccount.com"
+
+        # Optional: Enable Google Cloud Operations (monitoring/logging)
+        # googleCloudOperations:
+        #   enabled: true
+        #   projectId: "your-project-id"
+
+        # Optional: Configure image registry
+        # images:
+        #   repository: "gcr.io/your-project"
+        #   tag: "latest"
+
+      # Optional: Override specific values
+      parameters:
+        - name: "frontend.service.type"
+          value: "LoadBalancer"
+        # Add more parameters as needed
+
+      # Optional: Use values files from the repo
+      # valueFiles:
+      #   - values.yaml
+      #   - values-prod.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: webshop
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Health check configuration
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+
+  # Notification settings
+  revisionHistoryLimit: 10
