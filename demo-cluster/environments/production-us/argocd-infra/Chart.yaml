@@ -1,0 +1,10 @@
+apiVersion: v2
+description: ArgoCD install
+name: argocd-infra
+version: 7.8.1
+
+dependencies:
+  - name: argo-cd
+    version: 7.8.1
+    repository: https://argoproj.github.io/argo-helm
+    alias: argocd
