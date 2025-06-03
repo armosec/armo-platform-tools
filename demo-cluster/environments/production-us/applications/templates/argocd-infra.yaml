@@ -13,5 +13,5 @@ spec:
         - values.yaml
     repoURL: "https://github.com/armosec/armo-platform-tools.git"
     targetRevision: main
-    path: demo-cluster/environments/production/argocd-infra
+    path: demo-cluster/environments/production-us/argocd-infra
   project: default

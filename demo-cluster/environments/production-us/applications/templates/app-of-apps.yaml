@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: "https://github.com/armosec/armo-platform-tools.git"
     targetRevision: main
-    path: demo-cluster/environments/production/applications
+    path: demo-cluster/environments/production-us/applications
   project: default
   syncPolicy:
     automated:

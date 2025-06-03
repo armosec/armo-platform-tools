@@ -13,7 +13,7 @@ spec:
         - values.yaml
     repoURL: "https://github.com/armosec/armo-platform-tools.git"
     targetRevision: main
-    path: demo-cluster/environments/production/kubescape
+    path: demo-cluster/environments/production-us/kubescape
   project: default
   syncPolicy:
     automated:
