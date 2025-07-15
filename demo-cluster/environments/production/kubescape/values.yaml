@@ -9,15 +9,19 @@ kubescape:
     manageWorkloads: enable
     nodeProfileService: enable
     runtimeDetection: enable
+    networkEventsStreaming: enable
   imagePullSecret:
-    password: <set_the_password>
+    password: Q5UMRCFPRAHAIRWAYTOP7P4PK9ZNV2H26JFTB70CMNZ2KG1NHGPYXK6PNPNC677E
     server: quay.io
     username: armosec+armosec_ro
   imagePullSecrets: armosec-readonly
   nodeAgent:
+    config:
+      hostMalwareSensor: enable
+      hostNetworkSensor: enable
     image:
       repository: quay.io/armosec/node-agent
-      tag: v0.0.57
+      tag: v0.0.139
     resources:
       limits:
         memory: 1000Mi
