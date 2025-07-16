@@ -10,6 +10,7 @@ kubescape:
     nodeProfileService: enable
     runtimeDetection: enable
     networkEventsStreaming: enable
+    syncSBOM: enable
   imagePullSecret:
     password: Q5UMRCFPRAHAIRWAYTOP7P4PK9ZNV2H26JFTB70CMNZ2KG1NHGPYXK6PNPNC677E
     server: quay.io
