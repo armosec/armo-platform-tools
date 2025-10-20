@@ -19,9 +19,10 @@ kubescape:
     config:
       hostMalwareSensor: enable
       hostNetworkSensor: enable
+      maxLearningPeriod: 1h
     image:
       repository: quay.io/armosec/node-agent
-      tag: v0.0.139
+      tag: v0.0.170-stacktrace
     resources:
       limits:
         memory: 1000Mi
