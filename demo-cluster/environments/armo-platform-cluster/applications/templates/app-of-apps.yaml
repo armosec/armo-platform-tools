@@ -13,5 +13,7 @@ spec:
     path: demo-cluster/environments/armo-platform-cluster/applications
   project: default
   syncPolicy:
+    automated:
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true

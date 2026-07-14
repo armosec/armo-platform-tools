@@ -1,0 +1,31 @@
+# User-supplied values for the `armosec` Helm release (namespace: kubescape).
+#
+# Chart:  armosec-kubescape-operator
+# Repo:   https://armosec.github.io/helm-charts
+#
+# Moved here from a local, never-committed /Users/naorh/Desktop/kubescape-gke/app.yaml
+# (which had these inlined as spec.source.helm.valuesObject on the Application
+# directly). Same content, just relocated into a proper GitOps-tracked values file.
+#
+# nodeAgent.image.tag is intentionally left UNSET (was previously pinned to
+# v0.0.351) so it always tracks the chart's own default/latest tag instead of
+# a version we'd have to remember to bump by hand.
+kubescape-operator:
+  certificates:
+    strategy: initContainer
+  clusterName: armo-platform-cluster-gke
+  credentials:
+    cloudSecret: cloud-secret
+  imagePullSecrets: armosec-readonly
+  server: api.armosec.io
+  nodeAgent:
+    image:
+      repository: quay.io/armosec/node-agent
+    autoscaler:
+      minResources:
+        memory: 1Gi
+    env:
+      - name: ENABLE_PROFILER
+        value: "enable"
+      - name: PYROSCOPE_SERVER_SVC
+        value: "http://pyroscope-distributor.pyroscope.svc.cluster.local:4040"

@@ -16,6 +16,8 @@ spec:
     server: https://kubernetes.default.svc
     namespace: default
   syncPolicy:
+    automated:
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
 ---
@@ -40,6 +42,8 @@ spec:
     server: https://kubernetes.default.svc
     namespace: monitoring
   syncPolicy:
+    automated:
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
 ---
@@ -65,6 +69,60 @@ spec:
     server: https://kubernetes.default.svc
     namespace: kube-system
   syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: armosec
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: "https://armosec.github.io/helm-charts"
+      chart: armosec-kubescape-operator
+      targetRevision: "*"
+      helm:
+        valueFiles:
+          - "$values/demo-cluster/environments/armo-platform-cluster/helm-releases/armosec/values.yaml"
+    - repoURL: "https://github.com/armosec/armo-platform-tools.git"
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kubescape
+  syncPolicy:
+    automated:
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pyroscope
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: "https://grafana.github.io/helm-charts"
+      chart: pyroscope
+      targetRevision: "*"
+      helm:
+        valueFiles:
+          - "$values/demo-cluster/environments/armo-platform-cluster/helm-releases/pyroscope/values.yaml"
+    - repoURL: "https://github.com/armosec/armo-platform-tools.git"
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pyroscope
+  syncPolicy:
+    automated:
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
 ---
@@ -83,5 +141,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: default
   syncPolicy:
+    automated:
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
