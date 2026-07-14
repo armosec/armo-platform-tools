@@ -235,7 +235,7 @@ metadata:
   annotations:
     cloud.google.com/neg: '{"ingress":true}'
     networking.gke.io/target-pool: ae621752b7e7d45fea48241c6dadb7bd
-  finalizers:labels:
+  labels:
     app: frontend
   name: frontend-external
   namespace: webshop

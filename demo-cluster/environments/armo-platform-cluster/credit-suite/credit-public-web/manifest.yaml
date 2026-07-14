@@ -98,7 +98,7 @@ metadata:
   annotations:
     cloud.google.com/neg: '{"ingress":true}'
     networking.gke.io/target-pool: a93dc815d91034a18894cad854f04815
-  finalizers:name: public-web2
+  name: public-web2
   namespace: credit-public-web
 spec:
   allocateLoadBalancerNodePorts: true

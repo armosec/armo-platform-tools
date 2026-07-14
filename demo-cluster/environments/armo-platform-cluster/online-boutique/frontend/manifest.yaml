@@ -145,7 +145,7 @@ metadata:
     cloud.google.com/neg: '{"ingress":true}'
     internal.kpt.dev/upstream-identifier: '|Service|frontend|frontend-external'
     networking.gke.io/target-pool: aa8ef9e85ddcc4f2286e6e49bebb6a3a
-  finalizers:name: frontend-external
+  name: frontend-external
   namespace: frontend
 spec:
   allocateLoadBalancerNodePorts: true
