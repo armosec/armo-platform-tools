@@ -1,0 +1,17 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps-armo-platform-cluster
+  namespace: argocd
+spec:
+  destination:
+    namespace: argocd
+    server: https://kubernetes.default.svc
+  source:
+    repoURL: "https://github.com/armosec/armo-platform-tools.git"
+    targetRevision: main
+    path: demo-cluster/environments/armo-platform-cluster/applications
+  project: default
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

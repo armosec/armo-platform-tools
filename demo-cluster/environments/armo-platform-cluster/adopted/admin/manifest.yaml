@@ -1,0 +1,198 @@
+# --- Deployment/app-ssh-server ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  labels:
+    app: app-ssh-server
+  name: app-ssh-server
+  namespace: admin
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: app-ssh-server
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: app-ssh-server
+        kubescape.io/max-sniffing-time: 10m
+    spec:
+      containers:
+      - image: hisu/sshd-demo:v3
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - ps aux | grep sshd | grep -v grep
+          failureThreshold: 3
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: app-ssh-server
+        ports:
+        - containerPort: 22
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - ps aux | grep sshd | grep -v grep
+          failureThreshold: 3
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 100m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/ssh
+          name: ssh-key
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: ssh-key
+        projected:
+          defaultMode: 384
+          sources:
+          - configMap:
+              name: ssh-keys
+          - secret:
+              name: ssh-host-key
+---
+# --- Deployment/ping-app ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  labels:
+    app: ping-app
+  name: ping-app
+  namespace: admin
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: ping-app
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: ping-app
+        kubescape.io/max-sniffing-time: 10m
+    spec:
+      containers:
+      - env:
+        - name: APP_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ping-app-credentials
+              key: password
+        image: docker.io/hisu/ping-app:latest
+        imagePullPolicy: Always
+        name: ping-app
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+# --- Service/app-ssh-server ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  name: app-ssh-server
+  namespace: admin
+spec:
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - nodePort: 32241
+    port: 22
+    protocol: TCP
+    targetPort: 22
+  selector:
+    app: app-ssh-server
+  sessionAffinity: None
+  type: NodePort
+---
+# --- Service/ping-app ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  labels:
+    app: ping-app
+  name: ping-app
+  namespace: admin
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: ping-app
+  sessionAffinity: None
+  type: ClusterIP
+---
+# --- ConfigMap/ssh-keys ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ssh-keys
+  namespace: admin
+data:
+  ssh_host_rsa_key.pub: |
+    ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDUHT5ptP1LaxFBI42M1hwch8q3Ww6uczfmr8YKJsG7Bj/zNdF9qVZgnQ2Ag2qICZ/5hTZyd+DE5Gh60LutA7BvSIDmYhyAkF5hIuArIurWDuiTyFvyMaj+4U1RAqBr9Vqew9jW6B5jC7hRRSDRiZ9U7Cihonie9XsZ2HZxLpN/SD7l/+T3S171bBwyoJN5X0kiD4bpt0zdoez6qRCjwCSN2bERYLU0rQt6LGBFB4UCiTE93shTBUwLi0ESpnKc5gm/mUX69IapLI0/OO6deboW7Xm0Wz9bBTdGtMETcTqSTQE+EhPl6xR5WuSDcI2Q8M2zw0jZ/JDtXmopQM4sPAl+j+xRHTVZbsDdi1dhUvN0UbCf5ficaM4vjXfEW4rrdzyuuNjsGSCiboPEgI4UDHnujsYaQDBrv26CdRCxvAY01svsk1dTCfQWKBWBanATrfXdzRSmJDOG9cMJpKf5mQV8t+dtGkFAo5/cp9yn85+aZ23cmpbNRL6OaZT8eFQtAxgzjJ6FYiWIyLNu3RIO0CL8BnbBe3S2vC8KSiF6lv0yc7riv5TLyq80mBYNLhiYz3QbADqxTPJGwjLJRe55xwcsqvOj7XCW/JcKhUN4h8QUp9s+YjrVLHH98YJOrytJoyXorSGfvZpE818rn30qkEXiyDs7natV8PYdbtuJUJ8RhQ== ben@toymachine
+  sshd_config: |
+    # Basic sshd_config for testing
+    Port 22
+    PermitRootLogin yes
+    PasswordAuthentication yes
+    UsePAM no
+    HostKey /etc/ssh/ssh_host_rsa_key

@@ -1,0 +1,125 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: redis-orphan
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: "https://github.com/armosec/armo-platform-tools.git"
+    targetRevision: main
+    path: demo-cluster/environments/armo-platform-cluster/adopted/redis-orphan
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: webshop
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: "https://github.com/armosec/armo-platform-tools.git"
+    targetRevision: main
+    path: demo-cluster/environments/armo-platform-cluster/adopted/webshop
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: webshop
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kubernetes-goat
+  namespace: argocd
+spec:
+  project: kubernetes-goat
+  source:
+    repoURL: "https://github.com/armosec/armo-platform-tools.git"
+    targetRevision: main
+    path: demo-cluster/environments/armo-platform-cluster/adopted/kubernetes-goat
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: attack-suite
+  namespace: argocd
+spec:
+  project: kubernetes-goat
+  source:
+    repoURL: "https://github.com/armosec/armo-platform-tools.git"
+    targetRevision: main
+    path: demo-cluster/environments/armo-platform-cluster/adopted/attack-suite
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: attack-suite
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: admin-apps
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: "https://github.com/armosec/armo-platform-tools.git"
+    targetRevision: main
+    path: demo-cluster/environments/armo-platform-cluster/adopted/admin
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: admin
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: secure-middleware
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: "https://github.com/armosec/armo-platform-tools.git"
+    targetRevision: main
+    path: demo-cluster/environments/armo-platform-cluster/adopted/secure-middleware
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: secure-middleware
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: big-monolith
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: "https://github.com/armosec/armo-platform-tools.git"
+    targetRevision: main
+    path: demo-cluster/environments/armo-platform-cluster/adopted/big-monolith
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: big-monolith
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

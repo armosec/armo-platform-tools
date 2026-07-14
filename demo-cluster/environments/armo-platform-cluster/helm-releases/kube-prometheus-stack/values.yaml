@@ -1,0 +1,58 @@
+# User-supplied values for the `kube-prometheus-stack` Helm release (namespace: monitoring).
+#
+# Chart:  kube-prometheus-stack-87.10.1
+# Repo:   https://prometheus-community.github.io/helm-charts
+#
+# Captured via: helm get values kube-prometheus-stack -n monitoring -o yaml
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      limits:
+        memory: 128Mi
+      requests:
+        cpu: 25m
+        memory: 64Mi
+    storage: {}
+grafana:
+  defaultDashboardsEnabled: true
+  persistence:
+    enabled: false
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+kube-state-metrics:
+  resources:
+    limits:
+      memory: 128Mi
+    requests:
+      cpu: 20m
+      memory: 64Mi
+prometheus:
+  prometheusSpec:
+    resources:
+      limits:
+        memory: 768Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    retention: 1d
+    storageSpec: {}
+prometheus-node-exporter:
+  hostNetwork: false
+  resources:
+    limits:
+      memory: 64Mi
+    requests:
+      cpu: 20m
+      memory: 32Mi
+prometheusOperator:
+  resources:
+    limits:
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi

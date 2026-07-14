@@ -1,0 +1,120 @@
+# --- Deployment/checkoutservice ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    internal.kpt.dev/upstream-identifier: apps|Deployment|checkout|checkoutservice
+  name: checkoutservice
+  namespace: checkout
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: checkoutservice
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: checkoutservice
+    spec:
+      containers:
+      - env:
+        - name: PORT
+          value: '5050'
+        - name: PRODUCT_CATALOG_SERVICE_ADDR
+          value: productcatalogservice.product-catalog.svc.cluster.local:3550
+        - name: SHIPPING_SERVICE_ADDR
+          value: shippingservice.shipping.svc.cluster.local:50051
+        - name: PAYMENT_SERVICE_ADDR
+          value: paymentservice.payment.svc.cluster.local:50051
+        - name: EMAIL_SERVICE_ADDR
+          value: emailservice.email.svc.cluster.local:5000
+        - name: CURRENCY_SERVICE_ADDR
+          value: currencyservice.currency.svc.cluster.local:7000
+        - name: CART_SERVICE_ADDR
+          value: cartservice.cart.svc.cluster.local:7070
+        image: gcr.io/google-samples/microservices-demo/checkoutservice:v0.9.0
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 5050
+            service: ''
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        name: server
+        ports:
+        - containerPort: 5050
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          grpc:
+            port: 5050
+            service: ''
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: 200m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: checkout
+      serviceAccountName: checkout
+      terminationGracePeriodSeconds: 30
+---
+# --- Service/checkoutservice ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+    internal.kpt.dev/upstream-identifier: '|Service|checkout|checkoutservice'
+  name: checkoutservice
+  namespace: checkout
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: grpc
+    port: 5050
+    protocol: TCP
+    targetPort: 5050
+  selector:
+    app: checkoutservice
+  sessionAffinity: None
+  type: ClusterIP
+---
+# --- ServiceAccount/checkout ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    internal.kpt.dev/upstream-identifier: '|ServiceAccount|checkout|checkout'
+  name: checkout
+  namespace: checkout

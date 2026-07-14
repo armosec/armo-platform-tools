@@ -1,0 +1,70 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: online-boutique
+  namespace: argocd
+spec:
+  description: Per-namespace "Online Boutique" style microservices demo (network-segmentation lab)
+  sourceRepos:
+    - "https://github.com/armosec/armo-platform-tools.git"
+  destinations:
+    - namespace: "ad"
+      server: https://kubernetes.default.svc
+    - namespace: "cart"
+      server: https://kubernetes.default.svc
+    - namespace: "checkout"
+      server: https://kubernetes.default.svc
+    - namespace: "currency"
+      server: https://kubernetes.default.svc
+    - namespace: "email"
+      server: https://kubernetes.default.svc
+    - namespace: "frontend"
+      server: https://kubernetes.default.svc
+    - namespace: "loadgenerator"
+      server: https://kubernetes.default.svc
+    - namespace: "payment"
+      server: https://kubernetes.default.svc
+    - namespace: "product-catalog"
+      server: https://kubernetes.default.svc
+    - namespace: "recommendation"
+      server: https://kubernetes.default.svc
+    - namespace: "shipping"
+      server: https://kubernetes.default.svc
+    - namespace: "static-serving"
+      server: https://kubernetes.default.svc
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: credit-suite
+  namespace: argocd
+spec:
+  description: credit-admin/auth/data/finance/public-web namespaces
+  sourceRepos:
+    - "https://github.com/armosec/armo-platform-tools.git"
+  destinations:
+    - namespace: "credit-admin"
+      server: https://kubernetes.default.svc
+    - namespace: "credit-auth"
+      server: https://kubernetes.default.svc
+    - namespace: "credit-data"
+      server: https://kubernetes.default.svc
+    - namespace: "credit-finance"
+      server: https://kubernetes.default.svc
+    - namespace: "credit-public-web"
+      server: https://kubernetes.default.svc
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: kubernetes-goat
+  namespace: argocd
+spec:
+  description: Intentionally-vulnerable demo apps (Kubernetes Goat style) + attack-suite lab
+  sourceRepos:
+    - "https://github.com/armosec/armo-platform-tools.git"
+  destinations:
+    - namespace: "default"
+      server: https://kubernetes.default.svc
+    - namespace: "attack-suite"
+      server: https://kubernetes.default.svc
