@@ -1,0 +1,16 @@
+# keyrenewperiod: "0" disables the controller's automatic key rotation. This
+# cluster uses a custom, out-of-band-generated keypair (100-year validity)
+# installed as the active sealed-secrets key BEFORE this chart was first
+# installed, following the same pattern used in the kubernetes-deployment
+# repo (armo-main/armo-env/infra/values/common/sealed-secrets-values.yaml).
+# The private key is never committed to git - it only exists as the
+# `sealedsecrets.bitnami.com/sealed-secrets-key=active` labeled Secret in
+# kube-system, and whoever holds a backup of it outside the cluster.
+keyrenewperiod: "0"
+
+resources:
+  limits:
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
