@@ -14,6 +14,68 @@ alertmanager:
         cpu: 25m
         memory: 64Mi
     storage: {}
+    # Mounts the alertmanager-slack-webhook Secret (created by unsealing the
+    # SealedSecret in ../../adopted/kube-prometheus-stack-sealed-secrets/)
+    # into the alertmanager pod, read via config.receivers[].slack_configs[].api_url_file below.
+    secrets:
+      - alertmanager-slack-webhook
+
+  # Scoped intentionally to ONLY KubePodCrashLooping for now (not the full
+  # kube-prometheus-stack default alert library) - matches what was asked
+  # for. NOTE: Helm merges list-valued keys (route.routes, receivers) by full
+  # replacement, not by appending to chart defaults - so both lists below
+  # explicitly re-include the chart's default "null" entries alongside ours,
+  # otherwise route.receiver: 'null' (left as the chart default, unset here)
+  # would reference an undefined receiver and Alertmanager would refuse to load.
+  config:
+    route:
+      routes:
+        - receiver: "null"
+          matchers:
+            - alertname = "Watchdog"
+        - receiver: "slack-crashloop"
+          matchers:
+            - alertname = "KubePodCrashLooping"
+
+    receivers:
+      - name: "null"
+      - name: "slack-crashloop"
+        slack_configs:
+          - api_url_file: "/etc/alertmanager/secrets/alertmanager-slack-webhook/webhook_url"
+            channel: "#alerts"
+            send_resolved: true
+            title_link: '{{ define "slack.crashloop.titlelink" }}{{ "" }}{{ end }}'
+            title: |-
+              {{ template "slack.crashloop.title" . }}
+            text: |-
+              {{ template "slack.crashloop.text" . }}
+
+  templateFiles:
+    slack-crashloop.tmpl: |-
+      {{ define "slack.crashloop.title" -}}
+      [{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] Pod CrashLoopBackOff
+      {{- end }}
+
+      {{ define "slack.crashloop.text" -}}
+      {{ if gt (len .Alerts.Firing) 0 -}}
+      *FIRING:*
+      {{ range .Alerts.Firing -}}
+      ---
+      *Namespace:* `{{ .Labels.namespace }}`
+      *Pod:* `{{ .Labels.pod }}`
+      *Container:* `{{ .Labels.container }}`
+      *Description:* {{ .Annotations.description }}
+      {{ end -}}
+      {{- end }}
+      {{ if gt (len .Alerts.Resolved) 0 -}}
+      *RESOLVED:*
+      {{ range .Alerts.Resolved -}}
+      ---
+      *Namespace:* `{{ .Labels.namespace }}`
+      *Pod:* `{{ .Labels.pod }}`
+      {{ end -}}
+      {{- end }}
+      {{- end }}
 grafana:
   defaultDashboardsEnabled: true
   persistence:
