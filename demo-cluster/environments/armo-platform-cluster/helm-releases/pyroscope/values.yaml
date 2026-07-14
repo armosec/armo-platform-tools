@@ -1,0 +1,33 @@
+# User-supplied values for the `pyroscope` Helm release (namespace: pyroscope).
+#
+# Chart:  pyroscope
+# Repo:   https://grafana.github.io/helm-charts
+#
+# Moved here from a local, never-committed
+# /Users/naorh/Desktop/kubescape-gke/pyroscope-app.yaml (which had this inlined
+# as spec.source.helm.values on the Application directly). Same content, just
+# relocated into a proper GitOps-tracked values file.
+minio:
+  enabled: true
+  replicas: 1
+  drivesPerNode: 4
+  persistence:
+    size: 5Gi
+architecture:
+  microservices:
+    enabled: true
+    v2:
+      compaction-worker:
+        replicaCount: 1
+      metastore:
+        replicaCount: 1
+        extraArgs:
+          metastore.raft.bootstrap-expect-peers: 1
+      segment-writer:
+        replicaCount: 1
+      query-backend:
+        replicaCount: 1
+      distributor:
+        replicaCount: 1
+      query-frontend:
+        replicaCount: 1

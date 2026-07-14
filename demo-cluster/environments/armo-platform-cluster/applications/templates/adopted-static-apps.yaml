@@ -13,6 +13,8 @@ spec:
     server: https://kubernetes.default.svc
     namespace: default
   syncPolicy:
+    automated:
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
 ---
@@ -31,6 +33,8 @@ spec:
     server: https://kubernetes.default.svc
     namespace: monitoring
   syncPolicy:
+    automated:
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
 ---
@@ -49,6 +53,8 @@ spec:
     server: https://kubernetes.default.svc
     namespace: webshop
   syncPolicy:
+    automated:
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
 ---
@@ -67,6 +73,8 @@ spec:
     server: https://kubernetes.default.svc
     namespace: default
   syncPolicy:
+    automated:
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
 ---
@@ -85,6 +93,8 @@ spec:
     server: https://kubernetes.default.svc
     namespace: attack-suite
   syncPolicy:
+    automated:
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
 ---
@@ -103,6 +113,8 @@ spec:
     server: https://kubernetes.default.svc
     namespace: admin
   syncPolicy:
+    automated:
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
 ---
@@ -121,6 +133,8 @@ spec:
     server: https://kubernetes.default.svc
     namespace: secure-middleware
   syncPolicy:
+    automated:
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
 ---
@@ -139,5 +153,7 @@ spec:
     server: https://kubernetes.default.svc
     namespace: big-monolith
   syncPolicy:
+    automated:
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true

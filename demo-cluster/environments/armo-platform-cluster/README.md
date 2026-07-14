@@ -7,13 +7,16 @@ with its own self-hosted ArgoCD** — it is independent of the `production` and
 
 Before this environment existed, the cluster already had a self-hosted ArgoCD
 (namespace `argocd`, deployed out-of-band — not via this repo) managing exactly two
-Applications (`armosec`, `pyroscope`). Everything else running in the cluster was
+Applications (`armosec`, `pyroscope`), sourced from a local, never-committed
+`app.yaml`/`pyroscope-app.yaml` pair. Everything else running in the cluster was
 unmanaged: standalone Helm releases nobody had wired into ArgoCD, and a large number
 of raw/hand-applied workloads (demo apps, security-training fixtures, per-service
-microservice namespaces). This environment brings all of that under ArgoCD without
-touching the two pre-existing Applications.
+microservice namespaces). This environment brings all of that under ArgoCD,
+including formalizing `armosec`/`pyroscope` into git for the first time (same
+`metadata.name`/`namespace`, so ArgoCD adopts the existing live Applications rather
+than creating duplicates).
 
-## Critical policy: no prune, ever — and manual sync only for now
+## Critical policy: no prune, ever
 
 **Every `Application`/`ApplicationSet` in this environment must omit
 `syncPolicy.automated.prune` (or set it to `false`).** Prune is what deletes live
@@ -21,13 +24,11 @@ resources that fall out of the git-defined set, and this environment exists to
 *adopt* already-running workloads without any risk of deleting them. If you add a
 new Application here, do not add `prune: true`.
 
-On top of that, **none of these Applications have `syncPolicy.automated` at all** —
-sync is manual-only by design while this environment is first being adopted. This
-lets you inspect ArgoCD's computed diff for each Application (`argocd app diff` /
-the UI) and confirm it shows zero unexpected changes before triggering the first
-sync yourself. Once everyone's confident the captured manifests match live reality
-with no surprise diffs, `selfHeal: true` can be added back per-Application (still
-never `prune: true`) to re-enable drift correction.
+Every Application/ApplicationSet has `syncPolicy.automated.selfHeal: true` — after
+initially running manual-sync-only while first adopting everything (diffed and
+confirmed change-free by hand), this was switched back on once that verification
+was done. selfHeal auto-corrects drift on resources ArgoCD already owns; it does
+not create-or-delete anything prune would.
 
 ## Structure
 
@@ -43,10 +44,22 @@ never `prune: true`) to re-enable drift correction.
     live release's actual value overrides.
   - `metadata-db` (namespace `default`) — a custom chart with no discoverable
     public source; captured as a static rendered-manifest snapshot instead.
+  - `armosec` (namespace `kubescape`) — the kubescape-operator, the cluster's
+    pre-existing security-scanning Application. Node agent's image tag is left
+    unset so it always tracks whatever the chart's default/latest is, rather
+    than pinning a specific version.
+  - `pyroscope` (namespace `pyroscope`) — continuous profiling backend, feeding
+    the node agent's profiler (see `docs-enable-node-agent-profiling.md` in
+    this folder).
 - `adopted/` — static manifest snapshots of raw/unmanaged workloads, one folder per
   Application: `redis-orphan` (an orphaned Bitnami redis StatefulSet whose Helm
   release record no longer points to it), `webshop`, `kubernetes-goat`,
-  `attack-suite`, `admin`, `secure-middleware`, `big-monolith`.
+  `attack-suite`, `admin`, `secure-middleware`, `big-monolith`,
+  `kube-prometheus-stack-sealed-secrets` (the `SealedSecret` holding the Slack
+  webhook, see the crashloop-alert note below).
+- `docs/` — operational runbooks moved in from a local, never-committed
+  `~/Desktop/kubescape-gke` folder: `grafana-access.md`,
+  `enable-node-agent-profiling.md`.
 - `online-boutique/` — 12 subfolders (one per namespace: `ad`, `cart`, `checkout`,
   `currency`, `email`, `frontend`, `loadgenerator`, `payment`, `product-catalog`,
   `recommendation`, `shipping`, `static-serving`), each a standalone deployment of
@@ -99,19 +112,9 @@ kubectl apply -f demo-cluster/environments/armo-platform-cluster/applications/te
 ```
 
 This creates the `app-of-apps-armo-platform-cluster` Application, the `AppProject`s,
-both `ApplicationSet`s, and every one-off `Application` — but since sync is
-manual-only (see above), nothing actually gets deployed yet. Every Application will
-show as `OutOfSync`/`Missing` until manually synced. For each one, review its diff
-first:
-
-```sh
-argocd app diff <app-name>
-```
-
-and confirm it shows the resource being adopted (not modified/deleted), then:
-
-```sh
-argocd app sync <app-name>
-```
-
-None of this touches the pre-existing `armosec`/`pyroscope` Applications.
+both `ApplicationSet`s, and every one-off `Application`. With `selfHeal: true` set
+throughout, ArgoCD picks these up and syncs them automatically — no manual
+`argocd app sync` needed for day-to-day changes. If you want to preview a change
+before it applies (e.g. after editing a values file), `argocd app diff <app-name>`
+still works the same way; selfHeal just means you no longer have to follow it with
+a manual sync.
