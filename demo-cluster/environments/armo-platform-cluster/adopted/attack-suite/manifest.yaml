@@ -1,0 +1,485 @@
+# --- Deployment/changedetection ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  labels:
+    app: changedetection
+  name: changedetection
+  namespace: attack-suite
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: changedetection
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: changedetection
+        kubescape.io/max-sniffing-time: 3m
+    spec:
+      containers:
+      - args:
+        - |
+          echo "Creating Python script to read /etc/shadow..."
+          cat > /tmp/read_shadow.py <<EOF
+          import time
+
+          try:
+              for i in range(1, 15):
+                  print(f"Iteration {i} of 15")
+                  f = open("/etc/shadow", "r")
+                  content = f.read()
+                  time.sleep(1)
+                  f.close()
+                  print("Contents of /etc/shadow:\\n", content)
+          except Exception as e:
+              print("Error reading /etc/shadow:", e)
+
+          time.sleep(5)
+          EOF
+
+          echo "Running read_shadow.py..."
+          # python3 /tmp/read_shadow.py
+          # python3 /tmp/read_shadow.py
+          # python3 /tmp/read_shadow.py
+
+          echo "Starting Changedetection.io..."
+          exec python3 -u changedetection.py
+        command:
+        - /bin/sh
+        - -c
+        image: ghcr.io/dgtlmoon/changedetection.io:0.45.20
+        imagePullPolicy: IfNotPresent
+        name: changedetection
+        ports:
+        - containerPort: 5000
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 250m
+            memory: 512Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+# --- Deployment/mysql ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  labels:
+    app: mysql
+  name: mysql
+  namespace: attack-suite
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: mysql
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: mysql
+        kubescape.io/max-sniffing-time: 5m
+    spec:
+      containers:
+      - env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-credentials
+              key: root-password
+        - name: MYSQL_DATABASE
+          value: vulnerableapp
+        image: mysql:latest
+        imagePullPolicy: Always
+        name: mysql
+        ports:
+        - containerPort: 3306
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /docker-entrypoint-initdb.d
+          name: db-init
+        - mountPath: /etc/mysql/conf.d/
+          name: mysql-config
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: mysql-sa
+      serviceAccountName: mysql-sa
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: db-init
+        name: db-init
+      - configMap:
+          defaultMode: 420
+          name: mysql-config
+        name: mysql-config
+---
+# --- Deployment/ping-app ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  labels:
+    app: ping-app
+  name: ping-app
+  namespace: attack-suite
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: ping-app
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: ping-app
+        kubescape.io/max-sniffing-time: 5m
+    spec:
+      containers:
+      - image: docker.io/hisu/ping-app:latest
+        imagePullPolicy: Always
+        name: ping-app
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+# --- Deployment/secure-python-app ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  labels:
+    app: secure-python-app
+  name: secure-python-app
+  namespace: attack-suite
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: secure-python-app
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: secure-python-app
+        kubescape.io/max-sniffing-time: 5m
+    spec:
+      containers:
+      - env:
+        - name: MYSQL_HOST
+          valueFrom:
+            secretKeyRef:
+              key: host
+              name: db-credentials
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: db-credentials
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: db-credentials
+        - name: MYSQL_DB
+          valueFrom:
+            secretKeyRef:
+              key: database
+              name: db-credentials
+        image: hisu/secure-python-app:latest
+        imagePullPolicy: Always
+        name: secure-python-app
+        ports:
+        - containerPort: 5000
+          protocol: TCP
+        resources: {}
+        securityContext: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /app/templates
+          name: templates
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: templates
+        name: templates
+---
+# --- Service/changedetection-service ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  name: changedetection-service
+  namespace: attack-suite
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 5000
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    app: changedetection
+  sessionAffinity: None
+  type: ClusterIP
+---
+# --- Service/mysql ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  labels:
+    app: mysql
+  name: mysql
+  namespace: attack-suite
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 3306
+    protocol: TCP
+    targetPort: 3306
+  selector:
+    app: mysql
+  sessionAffinity: None
+  type: ClusterIP
+---
+# --- Service/ping-app ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  labels:
+    app: ping-app
+  name: ping-app
+  namespace: attack-suite
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: ping-app
+  sessionAffinity: None
+  type: ClusterIP
+---
+# --- Service/secure-python-app ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  labels:
+    app: secure-python-app
+  name: secure-python-app
+  namespace: attack-suite
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 5000
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    app: secure-python-app
+  sessionAffinity: None
+  type: ClusterIP
+---
+# --- ConfigMap/db-init ---
+apiVersion: v1
+data:
+  init.sql: |
+    CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      username VARCHAR(50) NOT NULL UNIQUE,
+      password VARCHAR(255) NOT NULL
+    );
+
+    -- Adding some test users (with plain text passwords for SQLi demo)
+    INSERT INTO users (username, password) VALUES
+    ('admin', 'admin123'),
+    ('john', 'password123'),
+    ('jane', 'letmein')
+    ON DUPLICATE KEY UPDATE username=username;
+
+    -- Granting privileges to the user
+    GRANT ALL PRIVILEGES ON vulnerable TO 'root'@'%';
+    FLUSH PRIVILEGES;
+kind: ConfigMap
+metadata:
+  name: db-init
+  namespace: attack-suite
+---
+# --- ConfigMap/mysql-config ---
+apiVersion: v1
+data:
+  my.cnf: |
+    [mysqld]
+    secure_file_priv=
+kind: ConfigMap
+metadata:
+  name: mysql-config
+  namespace: attack-suite
+---
+# --- ConfigMap/templates ---
+apiVersion: v1
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Secure Login</title>
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-gradient-to-r from-blue-500 to-purple-600 min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800">Welcome Back</h1>
+                <p class="text-gray-600 mt-2">Please sign in to continue</p>
+            </div>
+
+            {% if error %}
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                    <span class="block sm:inline">{{ error }}</span>
+                </div>
+            {% endif %}
+
+            {% if success %}
+                <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4" role="alert">
+                    <span class="block sm:inline">{{ success|safe }}</span>
+                </div>
+            {% endif %}
+
+            <form method="POST" class="space-y-6">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                    <input type="text"
+                           name="username"
+                           id="username"
+                           autocomplete="off"
+                           required
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password"
+                           name="password"
+                           autocomplete="off"
+                           id="password"
+                           class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+
+                <div>
+                    <button type="submit"
+                            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
+                        Sign In
+                    </button>
+                </div>
+            </form>
+
+            <div class="mt-6">
+                <div class="relative">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div class="relative flex justify-center text-sm">
+                        <span class="px-2 bg-white text-gray-500">Need help?</span>
+                    </div>
+                </div>
+                <p class="mt-2 text-center text-sm text-gray-600">
+                    Contact your administrator or click here to reset your password
+                </p>
+                <p class="mt-2 text-center text-sm text-gray-600" style="font-size: 8px;">
+                    By using this application, you agree to the following <a href="{{ url_for('eula') }}?eulaPath=eula.txt">terms and conditions</a>.
+                </p>
+            </div>
+        </div>
+    </body>
+    </html>
+kind: ConfigMap
+metadata:
+  name: templates
+  namespace: attack-suite
+---
+# --- ServiceAccount/mysql-sa ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mysql-sa
+  namespace: attack-suite

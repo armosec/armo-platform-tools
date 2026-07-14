@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: credit-suite
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - git:
+        repoURL: "https://github.com/armosec/armo-platform-tools.git"
+        revision: main
+        directories:
+          - path: demo-cluster/environments/armo-platform-cluster/credit-suite/*
+  template:
+    metadata:
+      name: "credit-suite-{{`{{.path.basename}}`}}"
+    spec:
+      project: credit-suite
+      source:
+        repoURL: "https://github.com/armosec/armo-platform-tools.git"
+        targetRevision: main
+        path: "{{`{{.path.path}}`}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{`{{.path.basename}}`}}"
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true

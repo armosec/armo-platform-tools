@@ -1,0 +1,62 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus
+  namespace: argocd
+spec:
+  project: default
+  # No overrides: `helm get values prometheus -n default` returned null on the
+  # live release, so it runs on pure chart defaults for 25.16.0 - nothing to
+  # reference from demo-cluster/environments/armo-platform-cluster/helm-releases/prometheus/values.yaml
+  source:
+    repoURL: "https://prometheus-community.github.io/helm-charts"
+    chart: prometheus
+    targetRevision: 25.16.0
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    - repoURL: "https://prometheus-community.github.io/helm-charts"
+      chart: kube-prometheus-stack
+      targetRevision: 87.10.1
+      helm:
+        valueFiles:
+          - "$values/demo-cluster/environments/armo-platform-cluster/helm-releases/kube-prometheus-stack/values.yaml"
+    - repoURL: "https://github.com/armosec/armo-platform-tools.git"
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metadata-db
+  namespace: argocd
+spec:
+  project: kubernetes-goat
+  source:
+    repoURL: "https://github.com/armosec/armo-platform-tools.git"
+    targetRevision: main
+    path: demo-cluster/environments/armo-platform-cluster/helm-releases/metadata-db
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

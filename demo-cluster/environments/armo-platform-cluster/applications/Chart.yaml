@@ -1,0 +1,4 @@
+apiVersion: v2
+description: ArgoCD applications for armo-platform-cluster (side/demo cluster, self-hosted ArgoCD)
+name: applications
+version: 0.0.1

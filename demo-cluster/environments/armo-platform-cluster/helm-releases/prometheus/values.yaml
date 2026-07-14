@@ -1,0 +1,11 @@
+# User-supplied values for the `prometheus` Helm release (namespace: default).
+#
+# Chart:  prometheus-25.16.0
+# Repo:   https://prometheus-community.github.io/helm-charts
+#
+# `helm get values prometheus -n default -o yaml` returned `null` — this
+# release was installed with no --set/-f overrides, i.e. it runs on pure
+# chart defaults for prometheus-25.16.0 / app version v2.50.1.
+#
+# Intentionally left with no keys below so ArgoCD renders the chart with
+# its own defaults, matching the live release.

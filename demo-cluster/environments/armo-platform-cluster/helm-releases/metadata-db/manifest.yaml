@@ -1,0 +1,85 @@
+# Static manifest snapshot of the `metadata-db` Helm release (namespace: default).
+#
+# Chart:  metadata-db-0.1.0
+# Repo:   UNKNOWN — no public repo found. Not present in `helm repo list`,
+#         `helm search hub`, or Artifact Hub search. Treated as a custom/
+#         local chart per fallback rule; captured as a static manifest
+#         instead of a chart+values reference.
+#
+# Captured via: helm get manifest metadata-db -n default
+# This is the rendered template output (not `kubectl get -o yaml`), so it
+# already excludes resourceVersion/uid/creationTimestamp/generation/
+# managedFields/selfLink/status/last-applied-configuration by construction —
+# no additional stripping was needed.
+#
+# No Secret resources are present in this release (only Service + Deployment).
+
+---
+# Source: metadata-db/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: metadata-db
+  labels:
+    app.kubernetes.io/name: metadata-db
+    helm.sh/chart: metadata-db-0.1.0
+    app.kubernetes.io/instance: metadata-db
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: metadata-db
+    app.kubernetes.io/instance: metadata-db
+---
+# Source: metadata-db/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metadata-db
+  labels:
+    app.kubernetes.io/name: metadata-db
+    helm.sh/chart: metadata-db-0.1.0
+    app.kubernetes.io/instance: metadata-db
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: metadata-db
+      app.kubernetes.io/instance: metadata-db
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: metadata-db
+        app.kubernetes.io/instance: metadata-db
+    spec:
+      containers:
+        - name: metadata-db
+          image: "madhuakula/k8s-goat-metadata-db:latest"
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 30m
+              memory: 60Mi
+            requests:
+              cpu: 30m
+              memory: 60Mi

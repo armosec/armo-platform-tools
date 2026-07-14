@@ -1,0 +1,125 @@
+# --- Deployment/public-web2 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  labels:
+    app: public-web2
+  name: public-web2
+  namespace: credit-public-web
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: public-web2
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/rewriteAppHTTPProbers: 'true'
+      labels:
+        app: public-web2
+    spec:
+      containers:
+      - command:
+        - /bin/sh
+        - -c
+        - "while true; do\n  echo \"== Malicious beaconing ==\"\n  wget -qO- http://17ebook.co\
+          \ || true\n  wget -qO- http://aladel.net || true\n  wget -qO- http://fakebook\
+          \ || true\n  wget -qO- http://clicnews.com || true\n\n  echo \"== Internal\
+          \ service calls ==\"\n  wget -qO- $PAYMENTS_API_ADDR || true\n  wget -qO-\
+          \ $USER_DIRECTORY_ADDR || true\n  wget -qO- $INVENTORY_DB_ADDR || true\n\
+          \  wget -qO- $ADMIN_DASHBOARD_ADDR || true\n\n  sleep 60\ndone &\njava -jar\
+          \ /app/spring-boot-application.jar\n"
+        env:
+        - name: PAYMENTS_API_ADDR
+          value: payments-api.credit-finance.svc.cluster.local
+        - name: USER_DIRECTORY_ADDR
+          value: user-directory.credit-auth.svc.cluster.local
+        - name: INVENTORY_DB_ADDR
+          value: inventory-db.credit-data.svc.cluster.local
+        - name: ADMIN_DASHBOARD_ADDR
+          value: admin-dashboard.credit-admin.svc.cluster.local
+        image: ghcr.io/christophetd/log4shell-vulnerable-app:latest
+        imagePullPolicy: IfNotPresent
+        name: server
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 250m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: true
+          privileged: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/secret-data
+          name: my-secret-vol
+          readOnly: true
+        - mountPath: /host-data
+          name: host-vol
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      serviceAccount: public-web2-sa
+      serviceAccountName: public-web2-sa
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: my-secret-vol
+        secret:
+          defaultMode: 420
+          secretName: web-secret
+      - hostPath:
+          path: /tmp
+          type: Directory
+        name: host-vol
+---
+# --- Service/public-web2 ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+    networking.gke.io/target-pool: a93dc815d91034a18894cad854f04815
+  finalizers:name: public-web2
+  namespace: credit-public-web
+spec:
+  allocateLoadBalancerNodePorts: true
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - nodePort: 32197
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: public-web2
+  sessionAffinity: None
+  type: LoadBalancer
+---
+# --- ServiceAccount/public-web2-sa ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: public-web2-sa
+  namespace: credit-public-web

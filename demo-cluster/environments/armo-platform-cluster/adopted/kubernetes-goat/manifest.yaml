@@ -1,0 +1,971 @@
+# --- Deployment/bad-creds-deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  name: bad-creds-deployment
+  namespace: default
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: bad-creds
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: bad-creds
+    spec:
+      containers:
+      - env:
+        - name: BAD_SECRET
+          value: private_secret
+        image: madhuakula/k8s-goat-health-check
+        imagePullPolicy: Always
+        name: bad-creds
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 30m
+            memory: 100Mi
+        securityContext:
+          privileged: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /custom/docker/docker.sock
+          name: docker-sock-volume
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - hostPath:
+          path: /var/run/docker.sock
+          type: Socket
+        name: docker-sock-volume
+---
+# --- Deployment/build-code-deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  name: build-code-deployment
+  namespace: default
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: build-code
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: build-code
+    spec:
+      containers:
+      - image: madhuakula/k8s-goat-build-code
+        imagePullPolicy: Always
+        name: build-code
+        ports:
+        - containerPort: 3000
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 20m
+            memory: 50Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+# --- Deployment/health-check-deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  name: health-check-deployment
+  namespace: default
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: health-check
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: health-check
+    spec:
+      containers:
+      - image: madhuakula/k8s-goat-health-check
+        imagePullPolicy: Always
+        name: health-check
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 30m
+            memory: 100Mi
+        securityContext:
+          privileged: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /custom/containerd/containerd.sock
+          name: containerd-sock-volume
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - hostPath:
+          path: /run/containerd/containerd.sock
+          type: Socket
+        name: containerd-sock-volume
+---
+# --- Deployment/internal-proxy-deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  labels:
+    app: internal-proxy
+  name: internal-proxy-deployment
+  namespace: default
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: internal-proxy
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: internal-proxy
+    spec:
+      containers:
+      - image: madhuakula/k8s-goat-internal-api
+        imagePullPolicy: Always
+        name: internal-api
+        ports:
+        - containerPort: 3000
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 50m
+            memory: 60Mi
+          requests:
+            cpu: 30m
+            memory: 40Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      - image: madhuakula/k8s-goat-info-app
+        imagePullPolicy: Always
+        name: info-app
+        ports:
+        - containerPort: 5000
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 30m
+            memory: 50Mi
+          requests:
+            cpu: 30m
+            memory: 40Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+# --- Deployment/kubernetes-goat-home-deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  name: kubernetes-goat-home-deployment
+  namespace: default
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: kubernetes-goat-home
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: kubernetes-goat-home
+    spec:
+      containers:
+      - image: madhuakula/k8s-goat-home
+        imagePullPolicy: Always
+        name: kubernetes-goat-home
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 30m
+            memory: 50Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+# --- Deployment/phpmyadmin-deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  name: phpmyadmin-deployment
+  namespace: default
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: phpmyadmin
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: phpmyadmin
+    spec:
+      containers:
+      - image: phpmyadmin/phpmyadmin
+        imagePullPolicy: Always
+        name: phpmyadmin
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+# --- Deployment/poor-registry-deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  name: poor-registry-deployment
+  namespace: default
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: poor-registry
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: poor-registry
+    spec:
+      containers:
+      - image: madhuakula/k8s-goat-poor-registry
+        imagePullPolicy: Always
+        name: poor-registry
+        ports:
+        - containerPort: 5000
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 30m
+            memory: 50Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+# --- Deployment/supplychain-attack ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  labels:
+    app: supplychain-attack
+  name: supplychain-attack
+  namespace: default
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: supplychain-attack
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: supplychain-attack
+    spec:
+      containers:
+      - args:
+        - sleep 30; while true; do wget sodiumlaurethsulfatedesyroyer.com; sleep 2; done
+        command:
+        - /bin/sh
+        - -c
+        - --
+        image: alpine:latest
+        imagePullPolicy: IfNotPresent
+        name: alpine
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 0
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /data
+          name: supplychain-attack-data
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - emptyDir: {}
+        name: supplychain-attack-data
+---
+# --- Deployment/system-monitor-deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  name: system-monitor-deployment
+  namespace: default
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: system-monitor
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: system-monitor
+    spec:
+      containers:
+      - env:
+        - name: K8S_GOAT_VAULT_KEY
+          valueFrom:
+            secretKeyRef:
+              key: k8sgoatvaultkey
+              name: goatvault
+        image: madhuakula/k8s-goat-system-monitor
+        imagePullPolicy: Always
+        name: system-monitor
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 20m
+            memory: 50Mi
+        securityContext:
+          allowPrivilegeEscalation: true
+          privileged: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /host-system
+          name: host-filesystem
+      dnsPolicy: ClusterFirst
+      hostIPC: true
+      hostPID: true
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - hostPath:
+          path: /
+          type: ''
+        name: host-filesystem
+---
+# --- Deployment/vulnerable-app ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  name: vulnerable-app
+  namespace: default
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: vulnerable-app
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: vulnerable-app
+    spec:
+      containers:
+      - image: webgoat/webgoat-8.0
+        imagePullPolicy: Always
+        name: vulnerable-container
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+# --- Deployment/wordpress ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+  labels:
+    app: wordpress
+    tier: frontend
+  name: wordpress
+  namespace: default
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: wordpress
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+      labels:
+        app: wordpress
+        tier: frontend
+    spec:
+      containers:
+      - env:
+        - name: WORDPRESS_DB_HOST
+          value: XXXXXX
+        - name: WORDPRESS_DB_NAME
+          value: XXXXXX
+        - name: WORDPRESS_DB_USER
+          value: XXXXXX
+        - name: WORDPRESS_DB_PASSWORD
+          value: XXXXXX
+        - name: WORDPRESS_DEBUG
+          value: XXXXXX
+        image: wordpress:6.0.1-php7.4
+        imagePullPolicy: IfNotPresent
+        name: wordpress
+        ports:
+        - containerPort: 80
+          name: wordpress
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 700m
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 1Gi
+        securityContext:
+          readOnlyRootFilesystem: false
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+# --- Job/armo-ebpf-check ---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    batch.kubernetes.io/controller-uid: ca46adc9-d566-4573-a772-c5a9a84aa14e
+    batch.kubernetes.io/job-name: armo-ebpf-check
+    controller-uid: ca46adc9-d566-4573-a772-c5a9a84aa14e
+    job-name: armo-ebpf-check
+  name: armo-ebpf-check
+  namespace: default
+spec:
+  backoffLimit: 6
+  completionMode: NonIndexed
+  completions: 1
+  manualSelector: false
+  parallelism: 1
+  podReplacementPolicy: TerminatingOrFailed
+  selector:
+    matchLabels:
+      batch.kubernetes.io/controller-uid: ca46adc9-d566-4573-a772-c5a9a84aa14e
+  suspend: false
+  template:
+    metadata:
+      labels:
+        batch.kubernetes.io/controller-uid: ca46adc9-d566-4573-a772-c5a9a84aa14e
+        batch.kubernetes.io/job-name: armo-ebpf-check
+        controller-uid: ca46adc9-d566-4573-a772-c5a9a84aa14e
+        job-name: armo-ebpf-check
+    spec:
+      containers:
+      - args:
+        - "if [ ! -r /sys/fs/bpf ]; then\n  echo \"eBPF is not supported on $(hostname)\"\n  exit 1\nelse\n  echo \"eBPF is supported on $(hostname)\"\nfi\n"
+        command:
+        - /bin/sh
+        - -c
+        image: busybox
+        imagePullPolicy: Always
+        name: armo-ebpf-check
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+# --- Job/batch-check-job ---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    batch.kubernetes.io/controller-uid: 6f3abd61-aec3-4e19-b9be-6ccfbe37e576
+    batch.kubernetes.io/job-name: batch-check-job
+    controller-uid: 6f3abd61-aec3-4e19-b9be-6ccfbe37e576
+    job-name: batch-check-job
+  name: batch-check-job
+  namespace: default
+spec:
+  backoffLimit: 6
+  completionMode: NonIndexed
+  completions: 1
+  manualSelector: false
+  parallelism: 1
+  podReplacementPolicy: TerminatingOrFailed
+  selector:
+    matchLabels:
+      batch.kubernetes.io/controller-uid: 6f3abd61-aec3-4e19-b9be-6ccfbe37e576
+  suspend: false
+  template:
+    metadata:
+      labels:
+        batch.kubernetes.io/controller-uid: 6f3abd61-aec3-4e19-b9be-6ccfbe37e576
+        batch.kubernetes.io/job-name: batch-check-job
+        controller-uid: 6f3abd61-aec3-4e19-b9be-6ccfbe37e576
+        job-name: batch-check-job
+    spec:
+      containers:
+      - image: madhuakula/k8s-goat-batch-check
+        imagePullPolicy: Always
+        name: batch-check
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+# --- Job/hidden-in-layers ---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    batch.kubernetes.io/controller-uid: a9d2d541-4d6d-4dd6-bc3e-88dcd644822d
+    batch.kubernetes.io/job-name: hidden-in-layers
+    controller-uid: a9d2d541-4d6d-4dd6-bc3e-88dcd644822d
+    job-name: hidden-in-layers
+  name: hidden-in-layers
+  namespace: default
+spec:
+  backoffLimit: 6
+  completionMode: NonIndexed
+  completions: 1
+  manualSelector: false
+  parallelism: 1
+  podReplacementPolicy: TerminatingOrFailed
+  selector:
+    matchLabels:
+      batch.kubernetes.io/controller-uid: a9d2d541-4d6d-4dd6-bc3e-88dcd644822d
+  suspend: false
+  template:
+    metadata:
+      labels:
+        batch.kubernetes.io/controller-uid: a9d2d541-4d6d-4dd6-bc3e-88dcd644822d
+        batch.kubernetes.io/job-name: hidden-in-layers
+        controller-uid: a9d2d541-4d6d-4dd6-bc3e-88dcd644822d
+        job-name: hidden-in-layers
+    spec:
+      containers:
+      - image: madhuakula/k8s-goat-hidden-in-layers
+        imagePullPolicy: Always
+        name: hidden-in-layers
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+---
+# --- Job/kubescape-sizing-checker ---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    batch.kubernetes.io/controller-uid: 8fb623c1-36d6-4018-9844-1fc5e9261633
+    batch.kubernetes.io/job-name: kubescape-sizing-checker
+    controller-uid: 8fb623c1-36d6-4018-9844-1fc5e9261633
+    job-name: kubescape-sizing-checker
+  name: kubescape-sizing-checker
+  namespace: default
+spec:
+  backoffLimit: 6
+  completionMode: NonIndexed
+  completions: 1
+  manualSelector: false
+  parallelism: 1
+  podReplacementPolicy: TerminatingOrFailed
+  selector:
+    matchLabels:
+      batch.kubernetes.io/controller-uid: 8fb623c1-36d6-4018-9844-1fc5e9261633
+  suspend: false
+  template:
+    metadata:
+      labels:
+        batch.kubernetes.io/controller-uid: 8fb623c1-36d6-4018-9844-1fc5e9261633
+        batch.kubernetes.io/job-name: kubescape-sizing-checker
+        controller-uid: 8fb623c1-36d6-4018-9844-1fc5e9261633
+        job-name: kubescape-sizing-checker
+    spec:
+      containers:
+      - image: quay.io/danvid/kubescape-sizing-checker
+        imagePullPolicy: Always
+        name: sizing-checker
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 250m
+            memory: 256Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext: {}
+      serviceAccount: kubescape-sizing-checker
+      serviceAccountName: kubescape-sizing-checker
+      terminationGracePeriodSeconds: 30
+---
+# --- Service/build-code-service ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  name: build-code-service
+  namespace: default
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 3000
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: build-code
+  sessionAffinity: None
+  type: ClusterIP
+---
+# --- Service/health-check-service ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  name: health-check-service
+  namespace: default
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: health-check
+  sessionAffinity: None
+  type: ClusterIP
+---
+# --- Service/internal-proxy-api-service ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  name: internal-proxy-api-service
+  namespace: default
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 3000
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: internal-proxy
+  sessionAffinity: None
+  type: ClusterIP
+---
+# --- Service/internal-proxy-info-app-service ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  name: internal-proxy-info-app-service
+  namespace: default
+spec:
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - nodePort: 30003
+    port: 5000
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    app: internal-proxy
+  sessionAffinity: None
+  type: NodePort
+---
+# --- Service/kubernetes-goat-home-service ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  name: kubernetes-goat-home-service
+  namespace: default
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: kubernetes-goat-home
+  sessionAffinity: None
+  type: ClusterIP
+---
+# --- Service/poor-registry-service ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  name: poor-registry-service
+  namespace: default
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 5000
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    app: poor-registry
+  sessionAffinity: None
+  type: ClusterIP
+---
+# --- Service/supplychain-attack-service ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  name: supplychain-attack-service
+  namespace: default
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: supplychain-attack
+  sessionAffinity: None
+  type: ClusterIP
+---
+# --- Service/system-monitor-service ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  name: system-monitor-service
+  namespace: default
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: system-monitor
+  sessionAffinity: None
+  type: ClusterIP
+---
+# --- Service/vulnerable-service ---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+  name: vulnerable-service
+  namespace: default
+spec:
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - nodePort: 30001
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app: vulnerable-app
+  sessionAffinity: None
+  type: NodePort
+---
+# --- ServiceAccount/kubescape-sizing-checker ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: kubescape-sizing-checker
+  name: kubescape-sizing-checker
+  namespace: default
